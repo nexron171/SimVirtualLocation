@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+   Info.plist
+   SimVirtualLocation
+
+   Created by Sergey Shirnin on 08.02.2022.
+   Copyright (c) 2022. All rights reserved.
+-->
+<plist version="1.0">
+<dict>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>App needs your location for map centering on you</string>
+</dict>
+</plist>
