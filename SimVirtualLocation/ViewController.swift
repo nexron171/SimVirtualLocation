@@ -15,6 +15,7 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
     @IBOutlet weak var mapView: MKMapView!
     @IBOutlet weak var speedLabel: NSTextField!
     @IBOutlet weak var speedSlider: NSSlider!
+    @IBOutlet weak var pointsModeSegmentControl: NSSegmentedControl!
 
     let locationManager = CLLocationManager()
     let simulationQueue = DispatchQueue(label: "simulation", qos: .utility)
@@ -31,6 +32,8 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         let clickGesture = NSClickGestureRecognizer(
             target: self,
             action: #selector(self.handleMapClick(_:)))
+
+        clickGesture.numberOfClicksRequired = 1
 
         mapView.delegate = self
         mapView.addGestureRecognizer(clickGesture)
@@ -54,6 +57,20 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
 
         if !isMapCentered {
             updateMapRegion()
+        }
+
+        mapView.showsZoomControls = true
+    }
+
+    @IBAction func onPointsModeSelected(_ sender: NSSegmentedControl) {
+        if sender.selectedSegment == 0 && annotations.count == 2, let second = annotations.last {
+            mapView.removeAnnotation(second)
+
+            if let route = route {
+                mapView.removeOverlay(route.polyline)
+            }
+
+            annotations = [annotations[0]]
         }
     }
 
@@ -190,6 +207,10 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         speedLabel.stringValue = "\(speed)"
     }
 
+    @IBAction func onReset(_ sender: Any) {
+        resetAll()
+    }
+
     func run(location: CLLocationCoordinate2D) {
         let path = Bundle.main.url(forResource: "set-simulator-location", withExtension: nil)!
         let args = ["-c", "\(location.latitude)", "\(location.longitude)"]
@@ -224,12 +245,22 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
     @objc func handleMapClick(_ sender: NSClickGestureRecognizer) {
         let point = sender.location(in: mapView)
 
+//        DispatchQueue.main.async {
+            self.handleSet(point: point)
+//        }
+    }
+
+    func handleSet(point: CGPoint) {
         let clickLocation = mapView.convert(point, toCoordinateFrom: mapView)
 
-        if annotations.count == 2 {
+        if pointsModeSegmentControl.selectedSegment == 0 {
             mapView.removeAnnotations(annotations)
             annotations = []
-            return
+        }
+
+        if annotations.count == 2 {
+            mapView.removeAnnotations(mapView.annotations)
+            annotations = []
         }
 
         let annotation = MKPointAnnotation()
@@ -237,8 +268,7 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         annotation.title = annotations.count == 0 ? "A" : "B"
 
         annotations.append(annotation)
-
-        mapView.addAnnotation(annotation)
+        self.mapView.addAnnotation(annotation)
     }
 
     func updateMapRegion() {
@@ -256,6 +286,15 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         let adjustedRegion = mapView.regionThatFits(viewRegion)
 
         mapView.region = adjustedRegion
+    }
+
+    func resetAll() {
+        mapView.removeAnnotations(mapView.annotations)
+        annotations = []
+
+        if let route = route {
+            mapView.removeOverlay(route.polyline)
+        }
     }
 
     // MARK: - MKMapViewDelegate

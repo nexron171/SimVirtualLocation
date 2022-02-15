@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="19529" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="B8D-0N-5wS">
     <dependencies>
+        <deployment identifier="macosx"/>
         <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="19529"/>
         <plugIn identifier="com.apple.MapKitIBPlugin" version="19529"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
@@ -711,20 +712,33 @@
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <mapView mapType="standard" rotateEnabled="NO" pitchEnabled="NO" showsCompass="NO" showsZoomControls="NO" translatesAutoresizingMaskIntoConstraints="NO" id="lf4-Vr-GV6">
-                                <rect key="frame" x="0.0" y="0.0" width="440" height="320"/>
+                                <rect key="frame" x="0.0" y="0.0" width="406" height="320"/>
                                 <constraints>
                                     <constraint firstAttribute="height" relation="greaterThanOrEqual" constant="320" id="5S5-0d-775"/>
                                     <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="320" id="ISQ-hq-n21"/>
                                 </constraints>
                             </mapView>
                             <customView translatesAutoresizingMaskIntoConstraints="NO" id="lbu-Zx-cAa">
-                                <rect key="frame" x="440" y="0.0" width="200" height="320"/>
+                                <rect key="frame" x="406" y="0.0" width="234" height="320"/>
                                 <subviews>
                                     <stackView distribution="fillProportionally" orientation="vertical" alignment="centerX" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="J5I-dA-XXP">
-                                        <rect key="frame" x="0.0" y="0.0" width="200" height="320"/>
+                                        <rect key="frame" x="0.0" y="0.0" width="234" height="320"/>
                                         <subviews>
+                                            <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Dan-vp-sIf">
+                                                <rect key="frame" x="8" y="296" width="219" height="25"/>
+                                                <segmentedCell key="cell" borderStyle="border" alignment="left" style="roundRect" trackingMode="selectOne" id="rEC-ny-NAB">
+                                                    <font key="font" metaFont="cellTitle"/>
+                                                    <segments>
+                                                        <segment label="One point mode" width="107" selected="YES"/>
+                                                        <segment label="Two points mode" imageScaling="proportionallyUpOrDown" width="105" tag="1"/>
+                                                    </segments>
+                                                </segmentedCell>
+                                                <connections>
+                                                    <action selector="onPointsModeSelected:" target="XfG-lQ-9wD" id="zrJ-Ij-j6D"/>
+                                                </connections>
+                                            </segmentedControl>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="A4b-Lz-ToJ">
-                                                <rect key="frame" x="23" y="278" width="154" height="47"/>
+                                                <rect key="frame" x="40" y="255" width="154" height="39"/>
                                                 <buttonCell key="cell" type="push" title="Set current location" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="61y-cm-Hma">
                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                     <font key="font" metaFont="system"/>
@@ -734,7 +748,7 @@
                                                 </connections>
                                             </button>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="0DZ-Le-IFh">
-                                                <rect key="frame" x="16" y="236" width="169" height="46"/>
+                                                <rect key="frame" x="33" y="221" width="169" height="38"/>
                                                 <buttonCell key="cell" type="push" title="Set location to A point" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="znu-3J-bjJ">
                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                     <font key="font" metaFont="system"/>
@@ -744,7 +758,7 @@
                                                 </buttonCell>
                                             </button>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="hbI-sJ-qsp">
-                                                <rect key="frame" x="13" y="193" width="174" height="47"/>
+                                                <rect key="frame" x="30" y="187" width="174" height="38"/>
                                                 <buttonCell key="cell" type="push" title="Make route from A to B" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="f5b-ds-32y">
                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                     <font key="font" metaFont="system"/>
@@ -754,7 +768,7 @@
                                                 </connections>
                                             </button>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="UOy-nf-IMd">
-                                                <rect key="frame" x="39" y="150" width="122" height="47"/>
+                                                <rect key="frame" x="56" y="153" width="122" height="38"/>
                                                 <buttonCell key="cell" type="push" title="Simulate route" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="BaU-US-gve">
                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                     <font key="font" metaFont="system"/>
@@ -764,7 +778,7 @@
                                                 </connections>
                                             </button>
                                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="ZhH-y1-vJC">
-                                                <rect key="frame" x="36" y="107" width="128" height="47"/>
+                                                <rect key="frame" x="53" y="119" width="128" height="38"/>
                                                 <buttonCell key="cell" type="push" title="Stop simulation" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="w5i-QI-aKU">
                                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                     <font key="font" metaFont="system"/>
@@ -774,7 +788,7 @@
                                                 </connections>
                                             </button>
                                             <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="U6N-kc-5KK">
-                                                <rect key="frame" x="62" y="79" width="76" height="27"/>
+                                                <rect key="frame" x="79" y="97" width="76" height="21"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Speed km/h" id="zNN-tb-VZi">
                                                     <font key="font" metaFont="system"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -782,20 +796,30 @@
                                                 </textFieldCell>
                                             </textField>
                                             <slider verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="l5q-Gm-qpb">
-                                                <rect key="frame" x="30" y="30" width="140" height="43"/>
+                                                <rect key="frame" x="30" y="57" width="174" height="34"/>
                                                 <sliderCell key="cell" state="on" alignment="left" minValue="5" maxValue="130" doubleValue="60" tickMarkPosition="above" sliderType="linear" id="War-R6-O1z"/>
                                             </slider>
                                             <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="FpZ-Rg-PId">
-                                                <rect key="frame" x="82" y="0.0" width="37" height="28"/>
+                                                <rect key="frame" x="99" y="34" width="37" height="21"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Label" id="AsA-68-Krs">
                                                     <font key="font" metaFont="system"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
+                                            <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="HIa-Dg-sG5">
+                                                <rect key="frame" x="83" y="-7" width="69" height="38"/>
+                                                <buttonCell key="cell" type="push" title="Reset" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="pbt-Fl-pxg">
+                                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                    <font key="font" metaFont="system"/>
+                                                </buttonCell>
+                                                <connections>
+                                                    <action selector="onReset:" target="XfG-lQ-9wD" id="4pV-RO-iHf"/>
+                                                </connections>
+                                            </button>
                                         </subviews>
                                         <constraints>
-                                            <constraint firstAttribute="width" constant="200" id="0wt-YG-se9"/>
+                                            <constraint firstAttribute="width" constant="234" id="0wt-YG-se9"/>
                                             <constraint firstItem="l5q-Gm-qpb" firstAttribute="leading" secondItem="J5I-dA-XXP" secondAttribute="leading" constant="32" id="3Mb-us-ncN"/>
                                             <constraint firstAttribute="trailing" secondItem="l5q-Gm-qpb" secondAttribute="trailing" constant="32" id="8N0-XS-m0O"/>
                                         </constraints>
@@ -808,8 +832,12 @@
                                             <integer value="1000"/>
                                             <integer value="1000"/>
                                             <integer value="1000"/>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
                                         </visibilityPriorities>
                                         <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
@@ -841,6 +869,7 @@
                     </view>
                     <connections>
                         <outlet property="mapView" destination="lf4-Vr-GV6" id="zia-af-67h"/>
+                        <outlet property="pointsModeSegmentControl" destination="Dan-vp-sIf" id="scE-hr-kS5"/>
                         <outlet property="speedLabel" destination="FpZ-Rg-PId" id="8PQ-Qk-qkq"/>
                         <outlet property="speedSlider" destination="l5q-Gm-qpb" id="EO2-bG-v4a"/>
                     </connections>
