@@ -23,6 +23,7 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
     var isMapCentered = false
     var annotations: [MKAnnotation] = []
     var route: MKRoute?
+    let currentSimulationAnnotation = MKPointAnnotation()
     var isSimulating = false
     var speed = 60.0
 
@@ -147,8 +148,6 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
             return
         }
 
-        let speedMS = speed / 3.6
-
         let buffer = UnsafeBufferPointer(start: route.polyline.points(), count: route.polyline.pointCount)
         var points: [MKMapPoint] = [MKMapPoint]()
         for i in 0..<route.polyline.pointCount {
@@ -165,6 +164,7 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
             var index = 0
 
             while index < points.count && self.isSimulating {
+                let speedMS = self.speed / 3.6
                 let coordinate = points[index].coordinate
                 if index < points.count - 1 {
                     let nextCoordinate = points[index + 1].coordinate
@@ -172,6 +172,11 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
 
                     if distance <= speedMS {
                         self.run(location: nextCoordinate)
+                        DispatchQueue.main.async {
+                            self.mapView.removeAnnotation(self.currentSimulationAnnotation)
+                            self.currentSimulationAnnotation.coordinate = nextCoordinate
+                            self.mapView.addAnnotation(self.currentSimulationAnnotation)
+                        }
                     } else {
                         let iterationsCount: Int = Int((distance / speedMS).rounded(.up))
 
@@ -183,6 +188,11 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
                             let lat = fraction * nextCoordinate.latitude + (1 - fraction) * coordinate.latitude
                             let newCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
                             self.run(location: newCoordinate)
+                            DispatchQueue.main.async {
+                                self.mapView.removeAnnotation(self.currentSimulationAnnotation)
+                                self.currentSimulationAnnotation.coordinate = newCoordinate
+                                self.mapView.addAnnotation(self.currentSimulationAnnotation)
+                            }
                             iteration += 1
                             sleep(1)
                         }
@@ -244,10 +254,7 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
 
     @objc func handleMapClick(_ sender: NSClickGestureRecognizer) {
         let point = sender.location(in: mapView)
-
-//        DispatchQueue.main.async {
-            self.handleSet(point: point)
-//        }
+        handleSet(point: point)
     }
 
     func handleSet(point: CGPoint) {
@@ -261,6 +268,7 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         if annotations.count == 2 {
             mapView.removeAnnotations(mapView.annotations)
             annotations = []
+            return
         }
 
         let annotation = MKPointAnnotation()
@@ -304,6 +312,18 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         renderer.strokeColor = NSColor(red: 17.0/255.0, green: 147.0/255.0, blue: 255.0/255.0, alpha: 1)
         renderer.lineWidth = 5.0
         return renderer
+    }
+
+    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+        if annotation === currentSimulationAnnotation {
+            let marker = MKMarkerAnnotationView(
+                annotation: currentSimulationAnnotation,
+                reuseIdentifier: "simulationMarker"
+            )
+            marker.markerTintColor = .orange
+            return marker
+        }
+        return nil
     }
 
     // MARK: - CLLocationManagerDelegate
