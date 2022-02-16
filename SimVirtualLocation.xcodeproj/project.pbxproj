@@ -13,6 +13,7 @@
 		ED87CA2027B1B42F001315D7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ED87CA1F27B1B42F001315D7 /* Assets.xcassets */; };
 		ED87CA2327B1B42F001315D7 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = ED87CA2127B1B42F001315D7 /* Main.storyboard */; };
 		ED87CA2B27B1B881001315D7 /* set-simulator-location in Resources */ = {isa = PBXBuildFile; fileRef = ED87CA2A27B1B881001315D7 /* set-simulator-location */; };
+		ED9FCB3C27BD7C1200AB2929 /* idevicelocation in Resources */ = {isa = PBXBuildFile; fileRef = ED9FCB3B27BD7C1200AB2929 /* idevicelocation */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +25,7 @@
 		ED87CA2227B1B42F001315D7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		ED87CA2427B1B42F001315D7 /* SimVirtualLocation.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SimVirtualLocation.entitlements; sourceTree = "<group>"; };
 		ED87CA2A27B1B881001315D7 /* set-simulator-location */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = "set-simulator-location"; sourceTree = "<group>"; };
+		ED9FCB3B27BD7C1200AB2929 /* idevicelocation */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = idevicelocation; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +65,7 @@
 				ED87CA2427B1B42F001315D7 /* SimVirtualLocation.entitlements */,
 				ED87CA2A27B1B881001315D7 /* set-simulator-location */,
 				ED44823527B2590400C416C9 /* Info.plist */,
+				ED9FCB3B27BD7C1200AB2929 /* idevicelocation */,
 			);
 			path = SimVirtualLocation;
 			sourceTree = "<group>";
@@ -126,6 +129,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				ED44823627B2590400C416C9 /* Info.plist in Resources */,
+				ED9FCB3C27BD7C1200AB2929 /* idevicelocation in Resources */,
 				ED87CA2027B1B42F001315D7 /* Assets.xcassets in Resources */,
 				ED87CA2B27B1B881001315D7 /* set-simulator-location in Resources */,
 				ED87CA2327B1B42F001315D7 /* Main.storyboard in Resources */,
@@ -294,7 +298,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.devnex.SimVirtualLocation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -323,7 +327,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.devnex.SimVirtualLocation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

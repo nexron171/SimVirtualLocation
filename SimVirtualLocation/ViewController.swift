@@ -16,6 +16,7 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
     @IBOutlet weak var speedLabel: NSTextField!
     @IBOutlet weak var speedSlider: NSSlider!
     @IBOutlet weak var pointsModeSegmentControl: NSSegmentedControl!
+    @IBOutlet weak var deviceSegmentedControl: NSSegmentedControl!
 
     let locationManager = CLLocationManager()
     let simulationQueue = DispatchQueue(label: "simulation", qos: .utility)
@@ -212,44 +213,13 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         isSimulating = false
     }
 
-    @objc func onSliderValueChanged() {
-        speed = speedSlider.doubleValue.rounded(.up)
-        speedLabel.stringValue = "\(speed)"
-    }
-
     @IBAction func onReset(_ sender: Any) {
         resetAll()
     }
 
-    func run(location: CLLocationCoordinate2D) {
-        let path = Bundle.main.url(forResource: "set-simulator-location", withExtension: nil)!
-        let args = ["-c", "\(location.latitude)", "\(location.longitude)"]
-
-        let task = Process()
-        task.executableURL = path
-        task.arguments = args
-
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-
-        task.standardOutput = outputPipe
-        task.standardError = errorPipe
-
-        do {
-            try task.run()
-        } catch {
-            print(error.localizedDescription)
-        }
-
-        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(decoding: outputData, as: UTF8.self)
-        print(output)
-
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let error = String(decoding: errorData, as: UTF8.self)
-        print(error)
-
-        task.waitUntilExit()
+    @objc func onSliderValueChanged() {
+        speed = speedSlider.doubleValue.rounded(.up)
+        speedLabel.stringValue = "\(speed)"
     }
 
     @objc func handleMapClick(_ sender: NSClickGestureRecognizer) {
@@ -296,6 +266,45 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         mapView.region = adjustedRegion
     }
 
+    func run(location: CLLocationCoordinate2D) {
+        let path: URL
+        let args: [String]
+
+        if deviceSegmentedControl.selectedSegment == 0 {
+            path = Bundle.main.url(forResource: "set-simulator-location", withExtension: nil)!
+            args = ["-c", "\(location.latitude)", "\(location.longitude)"]
+        } else {
+            path = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
+            args = ["\(location.latitude)", "\(location.longitude)"]
+        }
+
+        let task = Process()
+        task.executableURL = path
+        task.arguments = args
+
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+
+        task.standardOutput = outputPipe
+        task.standardError = errorPipe
+
+        do {
+            try task.run()
+        } catch {
+            print(error.localizedDescription)
+        }
+
+        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(decoding: outputData, as: UTF8.self)
+        print(output)
+
+        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        let error = String(decoding: errorData, as: UTF8.self)
+        print(error)
+
+        task.waitUntilExit()
+    }
+
     func resetAll() {
         mapView.removeAnnotations(mapView.annotations)
         annotations = []
@@ -303,6 +312,35 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         if let route = route {
             mapView.removeOverlay(route.polyline)
         }
+
+        let path = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
+        let args = ["-s"]
+
+        let task = Process()
+        task.executableURL = path
+        task.arguments = args
+
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+
+        task.standardOutput = outputPipe
+        task.standardError = errorPipe
+
+        do {
+            try task.run()
+        } catch {
+            print(error.localizedDescription)
+        }
+
+        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(decoding: outputData, as: UTF8.self)
+        print(output)
+
+        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        let error = String(decoding: errorData, as: UTF8.self)
+        print(error)
+
+        task.waitUntilExit()
     }
 
     // MARK: - MKMapViewDelegate
