@@ -27,6 +27,9 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
     let currentSimulationAnnotation = MKPointAnnotation()
     var isSimulating = false
     var speed = 60.0
+    var isSimulator = true
+    var timeScale: Double = 0.25
+    var updateTime: UInt32 { UInt32(1000000 * timeScale) }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -62,6 +65,10 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         }
 
         mapView.showsZoomControls = true
+    }
+
+    @IBAction func onDeviceModeSelected(_ sender: NSSegmentedControl) {
+        isSimulator = deviceSegmentedControl.selectedSegment == 0
     }
 
     @IBAction func onPointsModeSelected(_ sender: NSSegmentedControl) {
@@ -160,7 +167,7 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         isSimulating = true
         simulationQueue.async {
             self.run(location: points[0].coordinate)
-            sleep(1)
+            usleep(self.updateTime)
 
             var index = 0
 
@@ -195,12 +202,12 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
                                 self.mapView.addAnnotation(self.currentSimulationAnnotation)
                             }
                             iteration += 1
-                            sleep(1)
+                            usleep(self.updateTime)
                         }
                     }
                 }
                 index += 1
-                sleep(1)
+                usleep(self.updateTime)
             }
 
             DispatchQueue.main.async {
@@ -267,16 +274,18 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
     }
 
     func run(location: CLLocationCoordinate2D) {
-        let path: URL
-        let args: [String]
-
-        if deviceSegmentedControl.selectedSegment == 0 {
-            path = Bundle.main.url(forResource: "set-simulator-location", withExtension: nil)!
-            args = ["-c", "\(location.latitude)", "\(location.longitude)"]
-        } else {
-            path = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
-            args = ["\(location.latitude)", "\(location.longitude)"]
+        if isSimulator {
+            guard let bootedSimulators = try? getBootedSimulators() else {
+                print("No simulators found")
+                return
+            }
+            postNotification(for: location, to: bootedSimulators.map { $0.udid.uuidString })
+            print("Setting location to \(location.latitude) \(location.longitude)")
+            return
         }
+
+        let path = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
+        let args = ["\(location.latitude)", "\(location.longitude)"]
 
         let task = Process()
         task.executableURL = path
@@ -301,8 +310,6 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
         let error = String(decoding: errorData, as: UTF8.self)
         print(error)
-
-        task.waitUntilExit()
     }
 
     func resetAll() {

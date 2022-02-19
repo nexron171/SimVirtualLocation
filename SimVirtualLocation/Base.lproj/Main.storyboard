@@ -733,6 +733,9 @@
                                                         <segment label="Device" tag="1"/>
                                                     </segments>
                                                 </segmentedCell>
+                                                <connections>
+                                                    <action selector="onDeviceModeSelected:" target="XfG-lQ-9wD" id="vXk-En-sGo"/>
+                                                </connections>
                                             </segmentedControl>
                                             <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Dan-vp-sIf">
                                                 <rect key="frame" x="10" y="336" width="215" height="29"/>
