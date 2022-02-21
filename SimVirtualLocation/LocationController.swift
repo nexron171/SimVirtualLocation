@@ -41,6 +41,13 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         didSet { handlePointsModeChange() }
     }
     @Published var deviceMode: DeviceMode = .simulator
+
+    @Published var bootedSimulators: [Simulator] = []
+    @Published var selectedSimulator: String = ""
+
+    @Published var connectedDevices: [Device] = []
+    @Published var selectedDevice: String = ""
+
     @Published var showingAlert: Bool = false
     var alertText: String = ""
 
@@ -58,12 +65,21 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         mapView.mkMapView.delegate = self
         mapView.clickAction = handleMapClick
         mapView.mkMapView.showsZoomControls = true
+
+        refreshDevices()
+    }
+
+    func refreshDevices() {
+        bootedSimulators = (try? getBootedSimulators()) ?? []
+        selectedSimulator = bootedSimulators.first?.id ?? ""
+
+        connectedDevices = (try? getConnectedDevices()) ?? []
+        selectedDevice = connectedDevices.first?.id ?? ""
     }
 
     func setCurrentLocation() {
         guard let location = locationManager.location?.coordinate else {
-            alertText = "Current location is unavailable"
-            showingAlert = true
+            showAlert("Current location is unavailable")
             return
         }
         run(location: location)
@@ -71,15 +87,17 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
     func setSelectedLocation() {
         guard let annotation = annotations.first else {
-            alertText = "Point A is not selected"
-            showingAlert = true
+            showAlert("Point A is not selected")
             return
         }
         run(location: annotation.coordinate)
     }
 
     func makeRoute() {
-        guard annotations.count == 2 else { return }
+        guard annotations.count == 2 else {
+            showAlert("Route requires two points")
+            return
+        }
 
         let startPoint = annotations[0].coordinate
         let endPoint = annotations[1].coordinate
@@ -115,8 +133,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         directions.calculate { (response, error) -> Void in
             guard let response = response else {
                 if let error = error {
-                    self.alertText = error.localizedDescription
-                    self.showingAlert = true
+                    self.showAlert(error.localizedDescription)
                 }
                 return
             }
@@ -136,6 +153,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
     func simulateRoute() {
         guard let route = route else {
+            showAlert("No route for simulation")
             return
         }
 
@@ -266,48 +284,54 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
     private func run(location: CLLocationCoordinate2D) {
         if deviceMode == .simulator {
-            let bootedSimulators: [Simulator]
-
             do {
-                bootedSimulators = try getBootedSimulators()
+                try runOnSimulator(location: location)
             } catch {
-                alertText = "\(error)"
-                showingAlert = true
-                return
+                showAlert("\(error)")
             }
-            postNotification(for: location, to: bootedSimulators.map { $0.udid.uuidString })
-            print("Setting location to \(location.latitude) \(location.longitude)")
             return
         }
 
         let path = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
-        let args = ["--", "\(location.latitude)", "\(location.longitude)"]
+        var args = ["--", "\(location.latitude)", "\(location.longitude)"]
+
+        if selectedDevice != "" {
+            args = ["-u", selectedDevice] + args
+        }
 
         let task = Process()
         task.executableURL = path
         task.arguments = args
 
-        let outputPipe = Pipe()
         let errorPipe = Pipe()
 
-        task.standardOutput = outputPipe
         task.standardError = errorPipe
 
         do {
             try task.run()
         } catch {
-            alertText = error.localizedDescription
-            showingAlert = true
+            showAlert(error.localizedDescription)
             return
         }
 
-        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(decoding: outputData, as: UTF8.self)
-        print(output)
-
         let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
         let error = String(decoding: errorData, as: UTF8.self)
-        print(error)
+
+        if !error.isEmpty {
+            showAlert(error)
+        }
+    }
+
+    private func runOnSimulator(location: CLLocationCoordinate2D) throws {
+        if bootedSimulators.isEmpty {
+            throw SimulatorFetchError.noBootedSimulators
+        }
+
+        let simulators = bootedSimulators
+            .filter { $0.id == selectedSimulator || selectedSimulator == "" }
+            .map { $0.id }
+
+        postNotification(for: location, to: simulators)
     }
 
     private func resetAll() {
@@ -325,27 +349,29 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         task.executableURL = path
         task.arguments = args
 
-        let outputPipe = Pipe()
         let errorPipe = Pipe()
 
-        task.standardOutput = outputPipe
         task.standardError = errorPipe
 
         do {
             try task.run()
         } catch {
-            print(error.localizedDescription)
+            showAlert(error.localizedDescription)
         }
-
-        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(decoding: outputData, as: UTF8.self)
-        print(output)
 
         let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
         let error = String(decoding: errorData, as: UTF8.self)
-        print(error)
+
+        if !error.isEmpty {
+            showAlert(error)
+        }
 
         task.waitUntilExit()
+    }
+
+    private func showAlert(_ text: String) {
+        alertText = text
+        showingAlert = true
     }
 
     // MARK: - MKMapViewDelegate
@@ -382,25 +408,48 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
 private extension LocationController {
 
-    func getSimulators(named name: String, from simulators: [Simulator]) throws -> [Simulator] {
-        let matchingSimulators = simulators.filter { $0.name.lowercased() == name.lowercased() }
-        if matchingSimulators.isEmpty {
-            throw SimulatorFetchError.noMatchingSimulators(name: name)
+    private func getConnectedDevices() throws -> [Device] {
+        let task = Process()
+        task.launchPath = "/usr/bin/xcrun"
+        task.arguments = ["xctrace", "list", "devices"]
+
+        let pipe = Pipe()
+        task.standardOutput = pipe
+
+        task.launch()
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
+        pipe.fileHandleForReading.closeFile()
+
+        if task.terminationStatus != 0 {
+            throw SimulatorFetchError.simctlFailed
         }
 
-        return matchingSimulators
-    }
+        let output = String(data: data, encoding: .utf8)?
+            .split(separator: "\n")
+            .filter { ($0.contains("iPhone") || $0.contains("iPad")) && !$0.contains("Simulator") }
 
-    func getSimulators(with uuid: UUID, from simulators: [Simulator]) throws -> [Simulator] {
-        let matchingSimulators = simulators.filter { $0.udid == uuid }
-        if matchingSimulators.isEmpty {
-            throw SimulatorFetchError.noMatchingUDID(udid: uuid)
+        var connectedDevices: [Device] = []
+        output?.forEach { line in
+            let text = "\(line)"
+            let regex = try! NSRegularExpression(pattern: "\\([A-Za-z0-9]+(\\-*[A-Za-z0-9]+){1,}\\)", options: [])
+            let results = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
+
+            var udid = results.map {
+                String(text[Range($0.range, in: text)!])
+            }.first ?? ""
+
+            udid = "\(udid.dropFirst())"
+            udid = "\(udid.dropLast())"
+
+            connectedDevices.append(Device(id: udid, name: "\(line)"))
         }
 
-        return matchingSimulators
+        return connectedDevices
     }
 
-    func getBootedSimulators() throws -> [Simulator] {
+    private func getBootedSimulators() throws -> [Simulator] {
         let task = Process()
         task.launchPath = "/usr/bin/xcrun"
         task.arguments = ["simctl", "list", "-j", "devices"]
@@ -430,7 +479,7 @@ private extension LocationController {
             throw SimulatorFetchError.noBootedSimulators
         }
 
-        return bootedSimulators
+        return [Simulator.empty()] + bootedSimulators
     }
 
     enum SimulatorFetchError: Error, CustomStringConvertible {

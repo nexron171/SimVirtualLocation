@@ -21,14 +21,37 @@ struct ContentView: View {
                     Picker("Device mode", selection: $locationController.deviceMode) {
                         Text("Simulator").tag(LocationController.DeviceMode.simulator)
                         Text("Device").tag(LocationController.DeviceMode.device)
-                    }.labelsHidden()
-                    Picker("Points mode", selection: $locationController.pointsMode) {
-                        Text("Single").tag(LocationController.PointsMode.single)
-                        Text("Two").tag(LocationController.PointsMode.two)
+                    }.labelsHidden().pickerStyle(.segmented)
+
+                    if locationController.deviceMode == .simulator {
+                        Picker("Simulator:", selection: $locationController.selectedSimulator) {
+                            ForEach(locationController.bootedSimulators, id: \.id) { simulator in
+                                Text(simulator.name)
+                            }
+                        }
                     }
+
+                    if locationController.deviceMode == .device {
+                        Picker("Device:", selection: $locationController.selectedDevice) {
+                            ForEach(locationController.connectedDevices, id: \.id) { device in
+                                Text(device.name)
+                            }
+                        }
+                    }
+
+                    Button(action: {
+                        locationController.refreshDevices()
+                    }, label: {
+                        Text("Refresh").frame(maxWidth: .infinity)
+                    })
                 }
 
                 GroupBox {
+                    Picker("Points mode", selection: $locationController.pointsMode) {
+                        Text("Single").tag(LocationController.PointsMode.single)
+                        Text("Two").tag(LocationController.PointsMode.two)
+                    }.pickerStyle(.segmented)
+
                     Button(action: {
                         locationController.setCurrentLocation()
                     }, label: {
@@ -81,7 +104,6 @@ struct ContentView: View {
                 }
 
             }.frame(width: 220)
-                .pickerStyle(.segmented)
                 .padding()
         }.frame(minWidth: 750, minHeight: 500)
             .onAppear {
