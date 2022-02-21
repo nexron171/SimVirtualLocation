@@ -1,99 +1,84 @@
 //
-//  ViewController.swift
+//  LocationController.swift
 //  SimVirtualLocation
 //
-//  Created by Sergey Shirnin on 07.02.2022.
+//  Created by Sergey Shirnin on 21.02.2022.
 //
 
-import Cocoa
-import MapKit
+import Combine
 import CoreLocation
-import AppKit
+import MapKit
 
-class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDelegate {
+class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocationManagerDelegate {
 
-    @IBOutlet weak var mapView: MKMapView!
-    @IBOutlet weak var speedLabel: NSTextField!
-    @IBOutlet weak var speedSlider: NSSlider!
-    @IBOutlet weak var pointsModeSegmentControl: NSSegmentedControl!
-    @IBOutlet weak var deviceSegmentedControl: NSSegmentedControl!
+    enum DeviceMode: Int, Identifiable {
+        case simulator
+        case device
 
-    let locationManager = CLLocationManager()
-    let simulationQueue = DispatchQueue(label: "simulation", qos: .utility)
+        var id: Int { self.rawValue }
+    }
 
-    var isMapCentered = false
-    var annotations: [MKAnnotation] = []
-    var route: MKRoute?
-    let currentSimulationAnnotation = MKPointAnnotation()
-    var isSimulating = false
-    var speed = 60.0
-    var isSimulator = true
-    var timeScale: Double = 0.25
-    var updateTime: UInt32 { UInt32(1000000 * timeScale) }
+    enum PointsMode: Int, Identifiable {
+        case single
+        case two
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
+        var id: Int { self.rawValue }
+    }
 
-        let clickGesture = NSClickGestureRecognizer(
-            target: self,
-            action: #selector(self.handleMapClick(_:)))
+    private let mapView: MapView
+    private let currentSimulationAnnotation = MKPointAnnotation()
 
-        clickGesture.numberOfClicksRequired = 1
+    private let locationManager = CLLocationManager()
+    private let simulationQueue = DispatchQueue(label: "simulation", qos: .utility)
 
-        mapView.delegate = self
-        mapView.addGestureRecognizer(clickGesture)
+    private var isMapCentered = false
+    private var annotations: [MKAnnotation] = []
+    private var route: MKRoute?
+    private var isSimulating = false
 
-        speedLabel.stringValue = "\(speedSlider.doubleValue)"
+    @Published var speed: Double = 60.0
+    @Published var pointsMode: PointsMode = .single {
+        didSet { handlePointsModeChange() }
+    }
+    @Published var deviceMode: DeviceMode = .simulator
+    @Published var showingAlert: Bool = false
+    var alertText: String = ""
 
-        speedSlider.target = self
-        speedSlider.action = #selector(onSliderValueChanged)
-        speedSlider.isContinuous = true
+    private var timeScale: Double = 0.25
+    private var updateTime: UInt32 { UInt32(1000000 * timeScale) }
 
-        locationManager.requestWhenInUseAuthorization()
-        locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.distanceFilter = kCLDistanceFilterNone
-        locationManager.startUpdatingLocation()
+    init(mapView: MapView) {
+        self.mapView = mapView
+        super.init()
 
         locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        locationManager.distanceFilter = kCLDistanceFilterNone
+
+        mapView.mkMapView.delegate = self
+        mapView.clickAction = handleMapClick
+        mapView.mkMapView.showsZoomControls = true
     }
 
-    override func viewDidAppear() {
-        super.viewDidAppear()
-
-        if !isMapCentered {
-            updateMapRegion()
+    func setCurrentLocation() {
+        guard let location = locationManager.location?.coordinate else {
+            alertText = "Current location is unavailable"
+            showingAlert = true
+            return
         }
-
-        mapView.showsZoomControls = true
-    }
-
-    @IBAction func onDeviceModeSelected(_ sender: NSSegmentedControl) {
-        isSimulator = deviceSegmentedControl.selectedSegment == 0
-    }
-
-    @IBAction func onPointsModeSelected(_ sender: NSSegmentedControl) {
-        if sender.selectedSegment == 0 && annotations.count == 2, let second = annotations.last {
-            mapView.removeAnnotation(second)
-
-            if let route = route {
-                mapView.removeOverlay(route.polyline)
-            }
-
-            annotations = [annotations[0]]
-        }
-    }
-
-    @IBAction func onClickSetCurrentLocation(_ sender: Any) {
-        guard let location = locationManager.location?.coordinate else { return }
         run(location: location)
     }
 
-    @IBAction func onSetSelectedLocation(_ sender: Any) {
-        guard let annotation = annotations.first else { return }
+    func setSelectedLocation() {
+        guard let annotation = annotations.first else {
+            alertText = "Point A is not selected"
+            showingAlert = true
+            return
+        }
         run(location: annotation.coordinate)
     }
 
-    @IBAction func onMakeRoute(_ sender: Any) {
+    func makeRoute() {
         guard annotations.count == 2 else { return }
 
         let startPoint = annotations[0].coordinate
@@ -117,8 +102,8 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
             destinationAnnotation.coordinate = location.coordinate
         }
 
-        self.mapView.removeAnnotations(mapView.annotations)
-        self.mapView.showAnnotations([sourceAnnotation,destinationAnnotation], animated: true )
+        self.mapView.mkMapView.removeAnnotations(mapView.mkMapView.annotations)
+        self.mapView.mkMapView.showAnnotations([sourceAnnotation, destinationAnnotation], animated: true )
 
         let directionRequest = MKDirections.Request()
         directionRequest.source = sourceMapItem
@@ -141,17 +126,17 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
             let route = response.routes[0]
 
             if let currentRoute = self.route {
-                self.mapView.removeOverlay(currentRoute.polyline)
+                self.mapView.mkMapView.removeOverlay(currentRoute.polyline)
             }
             self.route = route
-            self.mapView.addOverlay((route.polyline), level: MKOverlayLevel.aboveRoads)
+            self.mapView.mkMapView.addOverlay((route.polyline), level: MKOverlayLevel.aboveRoads)
 
             let rect = route.polyline.boundingMapRect
-            self.mapView.setRegion(MKCoordinateRegion(rect.insetBy(dx: -1000, dy: -1000)), animated: true)
+            self.mapView.mkMapView.setRegion(MKCoordinateRegion(rect.insetBy(dx: -1000, dy: -1000)), animated: true)
         }
     }
 
-    @IBAction func onSimulateRoute(_ sender: Any) {
+    func simulateRoute() {
         guard let route = route else {
             return
         }
@@ -181,9 +166,9 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
                     if distance <= speedMS {
                         self.run(location: nextCoordinate)
                         DispatchQueue.main.async {
-                            self.mapView.removeAnnotation(self.currentSimulationAnnotation)
+                            self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
                             self.currentSimulationAnnotation.coordinate = nextCoordinate
-                            self.mapView.addAnnotation(self.currentSimulationAnnotation)
+                            self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
                         }
                     } else {
                         let iterationsCount: Int = Int((distance / speedMS).rounded(.up))
@@ -197,9 +182,9 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
                             let newCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
                             self.run(location: newCoordinate)
                             DispatchQueue.main.async {
-                                self.mapView.removeAnnotation(self.currentSimulationAnnotation)
+                                self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
                                 self.currentSimulationAnnotation.coordinate = newCoordinate
-                                self.mapView.addAnnotation(self.currentSimulationAnnotation)
+                                self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
                             }
                             iteration += 1
                             usleep(self.updateTime)
@@ -216,34 +201,59 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         }
     }
 
-    @IBAction func onStopSimulation(_ sender: Any) {
+    func updateMapRegion() {
+        if locationManager.authorizationStatus == .notDetermined {
+            locationManager.requestWhenInUseAuthorization()
+            return
+        }
+
+        guard !isMapCentered, let location = locationManager.location else { return }
+
+        isMapCentered = true
+
+        mapView.mkMapView.showsUserLocation = true
+
+        let viewRegion = MKCoordinateRegion(center: location.coordinate, latitudinalMeters: 1000, longitudinalMeters: 1000)
+        let adjustedRegion = mapView.mkMapView.regionThatFits(viewRegion)
+
+        mapView.mkMapView.region = adjustedRegion
+    }
+
+    func stopSimulation() {
         isSimulating = false
     }
 
-    @IBAction func onReset(_ sender: Any) {
+    func reset() {
         resetAll()
     }
 
-    @objc func onSliderValueChanged() {
-        speed = speedSlider.doubleValue.rounded(.up)
-        speedLabel.stringValue = "\(speed)"
+    private func handlePointsModeChange() {
+        if pointsMode == .single && annotations.count == 2, let second = annotations.last {
+            mapView.mkMapView.removeAnnotation(second)
+
+            if let route = route {
+                mapView.mkMapView.removeOverlay(route.polyline)
+            }
+
+            annotations = [annotations[0]]
+        }
     }
 
-    @objc func handleMapClick(_ sender: NSClickGestureRecognizer) {
-        let point = sender.location(in: mapView)
+    private func handleMapClick(_ sender: NSClickGestureRecognizer) {
+        let point = sender.location(in: mapView.mkMapView)
         handleSet(point: point)
     }
 
-    func handleSet(point: CGPoint) {
-        let clickLocation = mapView.convert(point, toCoordinateFrom: mapView)
+    private func handleSet(point: CGPoint) {
+        let clickLocation = mapView.mkMapView.convert(point, toCoordinateFrom: mapView.mkMapView)
 
-        if pointsModeSegmentControl.selectedSegment == 0 {
-            mapView.removeAnnotations(annotations)
+        if pointsMode == .single {
+            mapView.mkMapView.removeAnnotations(annotations)
             annotations = []
         }
 
         if annotations.count == 2 {
-            mapView.removeAnnotations(mapView.annotations)
+            mapView.mkMapView.removeAnnotations(mapView.mkMapView.annotations)
             annotations = []
             return
         }
@@ -253,30 +263,18 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         annotation.title = annotations.count == 0 ? "A" : "B"
 
         annotations.append(annotation)
-        self.mapView.addAnnotation(annotation)
+        self.mapView.mkMapView.addAnnotation(annotation)
     }
 
-    func updateMapRegion() {
-        guard !isMapCentered, let location = locationManager.location else { return }
+    private func run(location: CLLocationCoordinate2D) {
+        if deviceMode == .simulator {
+            let bootedSimulators: [Simulator]
 
-        isMapCentered = true
-
-        mapView.showsUserLocation = true
-        mapView.setCenter(
-            location.coordinate,
-            animated: false
-        )
-
-        let viewRegion = MKCoordinateRegion(center: mapView.centerCoordinate, latitudinalMeters: 500, longitudinalMeters: 500)
-        let adjustedRegion = mapView.regionThatFits(viewRegion)
-
-        mapView.region = adjustedRegion
-    }
-
-    func run(location: CLLocationCoordinate2D) {
-        if isSimulator {
-            guard let bootedSimulators = try? getBootedSimulators() else {
-                print("No simulators found")
+            do {
+                bootedSimulators = try getBootedSimulators()
+            } catch {
+                alertText = "\(error)"
+                showingAlert = true
                 return
             }
             postNotification(for: location, to: bootedSimulators.map { $0.udid.uuidString })
@@ -285,7 +283,7 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         }
 
         let path = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
-        let args = ["\(location.latitude)", "\(location.longitude)"]
+        let args = ["--", "\(location.latitude)", "\(location.longitude)"]
 
         let task = Process()
         task.executableURL = path
@@ -300,7 +298,9 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         do {
             try task.run()
         } catch {
-            print(error.localizedDescription)
+            alertText = error.localizedDescription
+            showingAlert = true
+            return
         }
 
         let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
@@ -312,12 +312,12 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
         print(error)
     }
 
-    func resetAll() {
-        mapView.removeAnnotations(mapView.annotations)
+    private func resetAll() {
+        mapView.mkMapView.removeAnnotations(mapView.mkMapView.annotations)
         annotations = []
 
         if let route = route {
-            mapView.removeOverlay(route.polyline)
+            mapView.mkMapView.removeOverlay(route.polyline)
         }
 
         let path = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
@@ -375,6 +375,87 @@ class ViewController: NSViewController, MKMapViewDelegate, CLLocationManagerDele
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         updateMapRegion()
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        updateMapRegion()
+    }
+}
+
+private extension LocationController {
+
+    func getSimulators(named name: String, from simulators: [Simulator]) throws -> [Simulator] {
+        let matchingSimulators = simulators.filter { $0.name.lowercased() == name.lowercased() }
+        if matchingSimulators.isEmpty {
+            throw SimulatorFetchError.noMatchingSimulators(name: name)
+        }
+
+        return matchingSimulators
+    }
+
+    func getSimulators(with uuid: UUID, from simulators: [Simulator]) throws -> [Simulator] {
+        let matchingSimulators = simulators.filter { $0.udid == uuid }
+        if matchingSimulators.isEmpty {
+            throw SimulatorFetchError.noMatchingUDID(udid: uuid)
+        }
+
+        return matchingSimulators
+    }
+
+    func getBootedSimulators() throws -> [Simulator] {
+        let task = Process()
+        task.launchPath = "/usr/bin/xcrun"
+        task.arguments = ["simctl", "list", "-j", "devices"]
+
+        let pipe = Pipe()
+        task.standardOutput = pipe
+
+        task.launch()
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
+        pipe.fileHandleForReading.closeFile()
+
+        if task.terminationStatus != 0 {
+            throw SimulatorFetchError.simctlFailed
+        }
+
+        let bootedSimulators: [Simulator]
+
+        do {
+            bootedSimulators = try JSONDecoder().decode(Simulators.self, from: data).bootedSimulators
+        } catch {
+            throw SimulatorFetchError.failedToReadOutput
+        }
+
+        if bootedSimulators.isEmpty {
+            throw SimulatorFetchError.noBootedSimulators
+        }
+
+        return bootedSimulators
+    }
+
+    enum SimulatorFetchError: Error, CustomStringConvertible {
+        case simctlFailed
+        case failedToReadOutput
+        case noBootedSimulators
+        case noMatchingSimulators(name: String)
+        case noMatchingUDID(udid: UUID)
+
+        var description: String {
+            switch self {
+            case .simctlFailed:
+                return "Running `simctl list` failed"
+            case .failedToReadOutput:
+                return "Failed to read output from simctl"
+            case .noBootedSimulators:
+                return "No simulators are currently booted"
+            case .noMatchingSimulators(let name):
+                return "No booted simulators named '\(name)'"
+            case .noMatchingUDID(let udid):
+                return "No booted simulators with udid: \(udid.uuidString)"
+            }
+        }
     }
 }
 
