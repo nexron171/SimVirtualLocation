@@ -112,14 +112,12 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
         let directions = MKDirections(request: directionRequest)
 
-        directions.calculate {
-            (response, error) -> Void in
-
+        directions.calculate { (response, error) -> Void in
             guard let response = response else {
                 if let error = error {
-                    print("Error: \(error)")
+                    self.alertText = error.localizedDescription
+                    self.showingAlert = true
                 }
-
                 return
             }
 
