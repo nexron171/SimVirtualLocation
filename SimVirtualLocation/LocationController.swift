@@ -64,7 +64,6 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
         mapView.mkMapView.delegate = self
         mapView.clickAction = handleMapClick
-        mapView.mkMapView.showsZoomControls = true
 
         refreshDevices()
     }
@@ -217,13 +216,13 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         }
     }
 
-    func updateMapRegion() {
+    func updateMapRegion(force: Bool = false) {
         if locationManager.authorizationStatus == .notDetermined {
             locationManager.requestWhenInUseAuthorization()
             return
         }
 
-        guard !isMapCentered, let location = locationManager.location else { return }
+        guard !isMapCentered || force, let location = locationManager.location else { return }
 
         isMapCentered = true
 
@@ -232,7 +231,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         let viewRegion = MKCoordinateRegion(center: location.coordinate, latitudinalMeters: 1000, longitudinalMeters: 1000)
         let adjustedRegion = mapView.mkMapView.regionThatFits(viewRegion)
 
-        mapView.mkMapView.region = adjustedRegion
+        mapView.mkMapView.setRegion(adjustedRegion, animated: true)
     }
 
     func stopSimulation() {

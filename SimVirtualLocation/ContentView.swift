@@ -15,7 +15,45 @@ struct ContentView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            mapView.frame(minWidth: 400)
+            ZStack(alignment: .bottomTrailing) {
+                mapView.frame(minWidth: 400)
+                VStack {
+                    Image(systemName: "plus")
+                        .foregroundColor(Color.white)
+                        .frame(width: 32, height: 32)
+                        .background(Color.secondary)
+                        .opacity(0.5)
+                        .cornerRadius(16)
+                        .onTapGesture {
+                            var region: MKCoordinateRegion = mapView.mkMapView.region
+                            region.span.latitudeDelta /= 2.0
+                            region.span.longitudeDelta /= 2.0
+                            mapView.mkMapView.setRegion(region, animated: true)
+                        }
+                    Image(systemName: "minus")
+                        .foregroundColor(Color.white)
+                        .frame(width: 32, height: 32)
+                        .background(Color.secondary)
+                        .opacity(0.5)
+                        .cornerRadius(16)
+                        .onTapGesture {
+                            var region: MKCoordinateRegion = mapView.mkMapView.region
+                            region.span.latitudeDelta *= 2.0
+                            region.span.longitudeDelta *= 2.0
+                            mapView.mkMapView.setRegion(region, animated: true)
+                        }
+                    Image(systemName: "location")
+                        .foregroundColor(Color.white)
+                        .frame(width: 32, height: 32)
+                        .background(Color.secondary)
+                        .opacity(0.5)
+                        .cornerRadius(16)
+                        .onTapGesture {
+                            locationController.updateMapRegion(force: true)
+                        }
+                }.padding()
+            }
+
             VStack {
                 GroupBox {
                     Picker("Device mode", selection: $locationController.deviceMode) {
