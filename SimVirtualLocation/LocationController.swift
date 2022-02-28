@@ -8,6 +8,7 @@
 import Combine
 import CoreLocation
 import MapKit
+import MachO
 
 class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocationManagerDelegate {
 
@@ -290,8 +291,8 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             }
             return
         }
-
-        let path = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
+        
+        let path: URL = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
         var args = ["--", "\(location.latitude)", "\(location.longitude)"]
 
         if selectedDevice != "" {
@@ -317,7 +318,10 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         let error = String(decoding: errorData, as: UTF8.self)
 
         if !error.isEmpty {
-            showAlert(error)
+            showAlert(error + """
+            
+            Try to install: `brew install libimobiledevice`
+            """)
         }
     }
 

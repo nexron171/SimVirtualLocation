@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		ED36B8E127CD5ABD00B2B9B2 /* idevicelocation in Resources */ = {isa = PBXBuildFile; fileRef = ED36B8E027CD5ABD00B2B9B2 /* idevicelocation */; };
 		ED44823627B2590400C416C9 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = ED44823527B2590400C416C9 /* Info.plist */; };
 		ED66969A27C3E388007CC068 /* Device.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED66969927C3E388007CC068 /* Device.swift */; };
 		ED76C13827C1606E00E74500 /* Simulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED76C13727C1606E00E74500 /* Simulator.swift */; };
@@ -16,10 +17,10 @@
 		ED82D39227C1FC8C0093656B /* MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED82D39127C1FC8C0093656B /* MapView.swift */; };
 		ED87CA2027B1B42F001315D7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ED87CA1F27B1B42F001315D7 /* Assets.xcassets */; };
 		ED8824F627C38044007499B7 /* LocationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED8824F527C38044007499B7 /* LocationController.swift */; };
-		ED9FCB3C27BD7C1200AB2929 /* idevicelocation in Resources */ = {isa = PBXBuildFile; fileRef = ED9FCB3B27BD7C1200AB2929 /* idevicelocation */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		ED36B8E027CD5ABD00B2B9B2 /* idevicelocation */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = idevicelocation; sourceTree = "<group>"; };
 		ED44823527B2590400C416C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		ED66969927C3E388007CC068 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
 		ED76C13727C1606E00E74500 /* Simulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Simulator.swift; sourceTree = "<group>"; };
@@ -30,7 +31,6 @@
 		ED87CA1827B1B42F001315D7 /* SimVirtualLocation.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SimVirtualLocation.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED87CA1F27B1B42F001315D7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		ED8824F527C38044007499B7 /* LocationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationController.swift; sourceTree = "<group>"; };
-		ED9FCB3B27BD7C1200AB2929 /* idevicelocation */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = idevicelocation; sourceTree = "<group>"; };
 		EDC18D1827C3AC9E00584479 /* SimVirtualLocation.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SimVirtualLocation.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -71,7 +71,7 @@
 				ED8824F527C38044007499B7 /* LocationController.swift */,
 				ED87CA1F27B1B42F001315D7 /* Assets.xcassets */,
 				ED44823527B2590400C416C9 /* Info.plist */,
-				ED9FCB3B27BD7C1200AB2929 /* idevicelocation */,
+				ED36B8E027CD5ABD00B2B9B2 /* idevicelocation */,
 				ED76C13727C1606E00E74500 /* Simulator.swift */,
 				ED76C13927C160A200E74500 /* Notification.swift */,
 				ED66969927C3E388007CC068 /* Device.swift */,
@@ -137,8 +137,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ED36B8E127CD5ABD00B2B9B2 /* idevicelocation in Resources */,
 				ED44823627B2590400C416C9 /* Info.plist in Resources */,
-				ED9FCB3C27BD7C1200AB2929 /* idevicelocation in Resources */,
 				ED87CA2027B1B42F001315D7 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -299,7 +299,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.devnex.SimVirtualLocation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -328,7 +328,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.devnex.SimVirtualLocation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
