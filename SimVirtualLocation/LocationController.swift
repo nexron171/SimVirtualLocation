@@ -435,18 +435,15 @@ private extension LocationController {
 
         var connectedDevices: [Device] = []
         output?.forEach { line in
-            let text = "\(line)"
-            let regex = try! NSRegularExpression(pattern: "\\([A-Za-z0-9]+(\\-*[A-Za-z0-9]+){1,}\\)", options: [])
-            let results = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
-
-            var udid = results.map {
-                String(text[Range($0.range, in: text)!])
-            }.first ?? ""
-
-            udid = "\(udid.dropFirst())"
-            udid = "\(udid.dropLast())"
-
-            connectedDevices.append(Device(id: udid, name: "\(line)"))
+            let udid = "\(line)"
+                .split(separator: " ")
+                .last?
+                .replacingOccurrences(of: "(", with: "")
+                .replacingOccurrences(of: ")", with: "")
+            
+            if let udid = udid {
+                connectedDevices.append(Device(id: udid, name: "\(line)"))
+            }
         }
 
         return connectedDevices
