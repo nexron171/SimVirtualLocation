@@ -327,6 +327,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
     private func runOnSimulator(location: CLLocationCoordinate2D) throws {
         if bootedSimulators.isEmpty {
+            isSimulating = false
             throw SimulatorFetchError.noBootedSimulators
         }
 
