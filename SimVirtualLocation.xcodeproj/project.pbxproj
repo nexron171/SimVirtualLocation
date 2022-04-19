@@ -9,22 +9,33 @@
 /* Begin PBXBuildFile section */
 		ED36B8E127CD5ABD00B2B9B2 /* idevicelocation in Resources */ = {isa = PBXBuildFile; fileRef = ED36B8E027CD5ABD00B2B9B2 /* idevicelocation */; };
 		ED44823627B2590400C416C9 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = ED44823527B2590400C416C9 /* Info.plist */; };
+		ED5EB07E280DDDBD004D3559 /* iOSPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EB07D280DDDBD004D3559 /* iOSPanel.swift */; };
+		ED5EB080280DE195004D3559 /* AndroidPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EB07F280DE195004D3559 /* AndroidPanel.swift */; };
+		ED5EB082280DE1E3004D3559 /* iOSDeviceSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EB081280DE1E3004D3559 /* iOSDeviceSettings.swift */; };
+		ED5EB084280DE263004D3559 /* LocationSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EB083280DE263004D3559 /* LocationSettingsPanel.swift */; };
+		ED5EB08B280DE44F004D3559 /* AndroidDeviceSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EB08A280DE44F004D3559 /* AndroidDeviceSettings.swift */; };
 		ED66969A27C3E388007CC068 /* Device.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED66969927C3E388007CC068 /* Device.swift */; };
 		ED76C13827C1606E00E74500 /* Simulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED76C13727C1606E00E74500 /* Simulator.swift */; };
-		ED76C13A27C160A200E74500 /* Notification.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED76C13927C160A200E74500 /* Notification.swift */; };
+		ED76C13A27C160A200E74500 /* NotificationSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED76C13927C160A200E74500 /* NotificationSender.swift */; };
 		ED82D38E27C1FC2C0093656B /* Main.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED82D38D27C1FC2C0093656B /* Main.swift */; };
 		ED82D39027C1FC4D0093656B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED82D38F27C1FC4D0093656B /* ContentView.swift */; };
 		ED82D39227C1FC8C0093656B /* MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED82D39127C1FC8C0093656B /* MapView.swift */; };
 		ED87CA2027B1B42F001315D7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ED87CA1F27B1B42F001315D7 /* Assets.xcassets */; };
 		ED8824F627C38044007499B7 /* LocationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED8824F527C38044007499B7 /* LocationController.swift */; };
+		EDF88CA6280EDAE300D8C794 /* helper-app.apk in Resources */ = {isa = PBXBuildFile; fileRef = EDF88CA5280EDADD00D8C794 /* helper-app.apk */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		ED36B8E027CD5ABD00B2B9B2 /* idevicelocation */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = idevicelocation; sourceTree = "<group>"; };
 		ED44823527B2590400C416C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		ED5EB07D280DDDBD004D3559 /* iOSPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSPanel.swift; sourceTree = "<group>"; };
+		ED5EB07F280DE195004D3559 /* AndroidPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidPanel.swift; sourceTree = "<group>"; };
+		ED5EB081280DE1E3004D3559 /* iOSDeviceSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSDeviceSettings.swift; sourceTree = "<group>"; };
+		ED5EB083280DE263004D3559 /* LocationSettingsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSettingsPanel.swift; sourceTree = "<group>"; };
+		ED5EB08A280DE44F004D3559 /* AndroidDeviceSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidDeviceSettings.swift; sourceTree = "<group>"; };
 		ED66969927C3E388007CC068 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
 		ED76C13727C1606E00E74500 /* Simulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Simulator.swift; sourceTree = "<group>"; };
-		ED76C13927C160A200E74500 /* Notification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notification.swift; sourceTree = "<group>"; };
+		ED76C13927C160A200E74500 /* NotificationSender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSender.swift; sourceTree = "<group>"; };
 		ED82D38D27C1FC2C0093656B /* Main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Main.swift; sourceTree = "<group>"; };
 		ED82D38F27C1FC4D0093656B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		ED82D39127C1FC8C0093656B /* MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapView.swift; sourceTree = "<group>"; };
@@ -32,6 +43,7 @@
 		ED87CA1F27B1B42F001315D7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		ED8824F527C38044007499B7 /* LocationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationController.swift; sourceTree = "<group>"; };
 		EDC18D1827C3AC9E00584479 /* SimVirtualLocation.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SimVirtualLocation.entitlements; sourceTree = "<group>"; };
+		EDF88CA5280EDADD00D8C794 /* helper-app.apk */ = {isa = PBXFileReference; lastKnownFileType = file; path = "helper-app.apk"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,6 +57,55 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		ED5EB085280DE339004D3559 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				ED5EB087280DE359004D3559 /* Android */,
+				ED5EB086280DE350004D3559 /* iOS */,
+				ED82D38D27C1FC2C0093656B /* Main.swift */,
+				ED82D38F27C1FC4D0093656B /* ContentView.swift */,
+				ED82D39127C1FC8C0093656B /* MapView.swift */,
+				ED5EB083280DE263004D3559 /* LocationSettingsPanel.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		ED5EB086280DE350004D3559 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				ED5EB07D280DDDBD004D3559 /* iOSPanel.swift */,
+				ED5EB081280DE1E3004D3559 /* iOSDeviceSettings.swift */,
+			);
+			path = iOS;
+			sourceTree = "<group>";
+		};
+		ED5EB087280DE359004D3559 /* Android */ = {
+			isa = PBXGroup;
+			children = (
+				ED5EB07F280DE195004D3559 /* AndroidPanel.swift */,
+				ED5EB08A280DE44F004D3559 /* AndroidDeviceSettings.swift */,
+			);
+			path = Android;
+			sourceTree = "<group>";
+		};
+		ED5EB088280DE370004D3559 /* Logic */ = {
+			isa = PBXGroup;
+			children = (
+				ED8824F527C38044007499B7 /* LocationController.swift */,
+				ED76C13927C160A200E74500 /* NotificationSender.swift */,
+			);
+			path = Logic;
+			sourceTree = "<group>";
+		};
+		ED5EB089280DE407004D3559 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				ED76C13727C1606E00E74500 /* Simulator.swift */,
+				ED66969927C3E388007CC068 /* Device.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		ED87CA0F27B1B42F001315D7 = {
 			isa = PBXGroup;
 			children = (
@@ -64,17 +125,14 @@
 		ED87CA1A27B1B42F001315D7 /* SimVirtualLocation */ = {
 			isa = PBXGroup;
 			children = (
+				ED5EB089280DE407004D3559 /* Models */,
+				ED5EB088280DE370004D3559 /* Logic */,
+				ED5EB085280DE339004D3559 /* Views */,
 				EDC18D1827C3AC9E00584479 /* SimVirtualLocation.entitlements */,
-				ED82D38D27C1FC2C0093656B /* Main.swift */,
-				ED82D38F27C1FC4D0093656B /* ContentView.swift */,
-				ED82D39127C1FC8C0093656B /* MapView.swift */,
-				ED8824F527C38044007499B7 /* LocationController.swift */,
 				ED87CA1F27B1B42F001315D7 /* Assets.xcassets */,
 				ED44823527B2590400C416C9 /* Info.plist */,
 				ED36B8E027CD5ABD00B2B9B2 /* idevicelocation */,
-				ED76C13727C1606E00E74500 /* Simulator.swift */,
-				ED76C13927C160A200E74500 /* Notification.swift */,
-				ED66969927C3E388007CC068 /* Device.swift */,
+				EDF88CA5280EDADD00D8C794 /* helper-app.apk */,
 			);
 			path = SimVirtualLocation;
 			sourceTree = "<group>";
@@ -139,6 +197,7 @@
 			files = (
 				ED36B8E127CD5ABD00B2B9B2 /* idevicelocation in Resources */,
 				ED44823627B2590400C416C9 /* Info.plist in Resources */,
+				EDF88CA6280EDAE300D8C794 /* helper-app.apk in Resources */,
 				ED87CA2027B1B42F001315D7 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -153,9 +212,14 @@
 				ED8824F627C38044007499B7 /* LocationController.swift in Sources */,
 				ED82D39227C1FC8C0093656B /* MapView.swift in Sources */,
 				ED82D38E27C1FC2C0093656B /* Main.swift in Sources */,
-				ED76C13A27C160A200E74500 /* Notification.swift in Sources */,
+				ED76C13A27C160A200E74500 /* NotificationSender.swift in Sources */,
+				ED5EB08B280DE44F004D3559 /* AndroidDeviceSettings.swift in Sources */,
+				ED5EB080280DE195004D3559 /* AndroidPanel.swift in Sources */,
+				ED5EB07E280DDDBD004D3559 /* iOSPanel.swift in Sources */,
+				ED5EB084280DE263004D3559 /* LocationSettingsPanel.swift in Sources */,
 				ED82D39027C1FC4D0093656B /* ContentView.swift in Sources */,
 				ED66969A27C3E388007CC068 /* Device.swift in Sources */,
+				ED5EB082280DE1E3004D3559 /* iOSDeviceSettings.swift in Sources */,
 				ED76C13827C1606E00E74500 /* Simulator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -299,7 +363,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.11;
+				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.devnex.SimVirtualLocation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -328,7 +392,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.11;
+				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.devnex.SimVirtualLocation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

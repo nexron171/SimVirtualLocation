@@ -36,6 +36,8 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     private var annotations: [MKAnnotation] = []
     private var route: MKRoute?
     private var isSimulating = false
+    
+    private let defaults: UserDefaults = UserDefaults.standard
 
     @Published var speed: Double = 60.0
     @Published var pointsMode: PointsMode = .single {
@@ -50,6 +52,10 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     @Published var selectedDevice: String = ""
 
     @Published var showingAlert: Bool = false
+    @Published var deviceType: Int = 0
+    @Published var adbPath: String = ""
+    @Published var adbDeviceId: String = ""
+    
     var alertText: String = ""
 
     private var timeScale: Double = 0.25
@@ -67,6 +73,10 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         mapView.clickAction = handleMapClick
 
         refreshDevices()
+        
+        deviceType = defaults.integer(forKey: "device_type")
+        adbPath = defaults.string(forKey: "adb_path") ?? ""
+        adbDeviceId = defaults.string(forKey: "adb_device_id") ?? ""
     }
 
     func refreshDevices() {
@@ -234,6 +244,48 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
         mapView.mkMapView.setRegion(adjustedRegion, animated: true)
     }
+    
+    func installHelperApp() {
+        if adbDeviceId.isEmpty {
+            showAlert("Please specify device id")
+            return
+        }
+        
+        if adbPath.isEmpty {
+            showAlert("Please specify path to adb")
+            return
+        }
+        
+        let apkPath = Bundle.main.url(forResource: "helper-app", withExtension: "apk")!.path
+        
+        let path = adbPath
+        let args = ["-s", adbDeviceId, "install", apkPath]
+
+        let task = Process()
+        task.executableURL = URL(string: "file://\(path)")!
+        task.arguments = args
+
+        let errorPipe = Pipe()
+
+        task.standardError = errorPipe
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            showAlert(error.localizedDescription)
+            return
+        }
+
+        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        let error = String(decoding: errorData, as: UTF8.self)
+
+        if !error.isEmpty {
+            showAlert(error)
+        } else {
+            showAlert("Helper app successfully installed. Please open MockLocationForDeveloper app on your phone and grant all required permissions")
+        }
+    }
 
     func stopSimulation() {
         isSimulating = false
@@ -283,6 +335,18 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     }
 
     private func run(location: CLLocationCoordinate2D) {
+        defaults.set(deviceType, forKey: "device_type")
+        defaults.set(adbPath, forKey: "adb_path")
+        defaults.set(adbDeviceId, forKey: "adb_device_id")
+        
+        if deviceType != 0 {
+            do {
+                try runOnAndroid(location: location)
+            } catch {
+                showAlert("\(error)")
+            }
+            return
+        }
         if deviceMode == .simulator {
             do {
                 try runOnSimulator(location: location)
@@ -292,17 +356,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             return
         }
         
-        let path: URL = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
-        var args = ["--", "\(location.latitude)", "\(location.longitude)"]
-
-        if selectedDevice != "" {
-            args = ["-u", selectedDevice] + args
-        }
-
-        let task = Process()
-        task.executableURL = path
-        task.arguments = args
-
+        let task = taskForIOS(args: ["--", "\(location.latitude)", "\(location.longitude)"], selectedDevice: selectedDevice)
         let errorPipe = Pipe()
 
         task.standardError = errorPipe
@@ -335,7 +389,72 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             .filter { $0.id == selectedSimulator || selectedSimulator == "" }
             .map { $0.id }
 
-        postNotification(for: location, to: simulators)
+        NotificationSender.postNotification(for: location, to: simulators)
+    }
+    
+    private func runOnAndroid(location: CLLocationCoordinate2D) throws {
+        if adbDeviceId.isEmpty {
+            showAlert("Please specify device id")
+            return
+        }
+        
+        if adbPath.isEmpty {
+            showAlert("Please specify path to adb")
+            return
+        }
+        
+        let task = taskForAndroid(
+            args: [
+                "-s", adbDeviceId,
+                "shell", "am", "broadcast",
+                "-a", "send.mock",
+                "-e", "lat", "\(location.latitude)",
+                "-e", "lon", "\(location.longitude)"
+            ]
+        )
+
+        let errorPipe = Pipe()
+
+        task.standardError = errorPipe
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            showAlert(error.localizedDescription)
+            return
+        }
+
+        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        let error = String(decoding: errorData, as: UTF8.self)
+
+        if !error.isEmpty {
+            showAlert(error)
+        }
+    }
+    
+    private func taskForIOS(args: [String], selectedDevice: String?) -> Process {
+        let path: URL = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
+        
+        var args = args
+        if let selectedDevice = selectedDevice, selectedDevice != "" {
+            args = ["-u", selectedDevice] + args
+        }
+
+        let task = Process()
+        task.executableURL = path
+        task.arguments = args
+        
+        return task
+    }
+    
+    private func taskForAndroid(args: [String]) -> Process {
+        let path = adbPath
+        let task = Process()
+        task.executableURL = URL(string: "file://\(path)")!
+        task.arguments = args
+        
+        return task
     }
 
     private func resetAll() {
@@ -346,13 +465,20 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             mapView.mkMapView.removeOverlay(route.polyline)
         }
 
-        let path = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
-        let args = ["-s"]
-
-        let task = Process()
-        task.executableURL = path
-        task.arguments = args
-
+        let task: Process
+        
+        if deviceType == 0 {
+            task = taskForIOS(args: ["-s"], selectedDevice: nil)
+        } else {
+            task = taskForAndroid(
+                args: [
+                    "-s", adbDeviceId,
+                    "shell", "am", "broadcast",
+                    "-a", "stop.mock"
+                ]
+            )
+        }
+        
         let errorPipe = Pipe()
 
         task.standardError = errorPipe
