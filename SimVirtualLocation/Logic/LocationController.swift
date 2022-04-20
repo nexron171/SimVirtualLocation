@@ -183,7 +183,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             var index = 0
 
             while index < points.count && self.isSimulating {
-                let speedMS = self.speed / 3.6
+                let speedMS = self.speed / 3.6 * self.timeScale
                 let coordinate = points[index].coordinate
                 if index < points.count - 1 {
                     let nextCoordinate = points[index + 1].coordinate
