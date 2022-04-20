@@ -181,15 +181,23 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             usleep(self.updateTime)
 
             var index = 0
+            var lastTime = Date().timeIntervalSince1970
 
             while index < points.count && self.isSimulating {
-                let speedMS = self.speed / 3.6 * self.timeScale
+                let speedMS = self.speed / 3.6
                 let coordinate = points[index].coordinate
                 if index < points.count - 1 {
                     let nextCoordinate = points[index + 1].coordinate
                     let distance = CLLocation.distance(from: coordinate, to: nextCoordinate)
+                    let now = Date().timeIntervalSince1970
+                    print(">>>: speed: \(speedMS), distance: \(distance), time: \(now - lastTime)")
+                    lastTime = now
 
                     if distance <= speedMS {
+                        let now = Date().timeIntervalSince1970
+                        print(">>>: speed: \(speedMS), distance: \(distance), time: \(now - lastTime)")
+                        lastTime = now
+                        
                         self.run(location: nextCoordinate)
                         DispatchQueue.main.async {
                             self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
@@ -197,12 +205,12 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
                             self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
                         }
                     } else {
-                        let iterationsCount: Int = Int((distance / speedMS).rounded(.up))
+                        let iterationsCount: Int = Int(((distance / speedMS) / self.timeScale).rounded(.up))
 
                         var iteration = 0
 
                         while iteration < iterationsCount && self.isSimulating {
-                            let fraction = 0.0 + ((1.0 / Double(iterationsCount)) * Double(iteration))
+                            let fraction = 1.0 / Double(iterationsCount) * Double(iteration)
                             let lon = fraction * nextCoordinate.longitude + (1 - fraction) * coordinate.longitude
                             let lat = fraction * nextCoordinate.latitude + (1 - fraction) * coordinate.latitude
                             let newCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
