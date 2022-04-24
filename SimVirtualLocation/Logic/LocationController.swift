@@ -58,8 +58,12 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     
     var alertText: String = ""
 
-    private var timeScale: Double = 0.25
-    private var updateTime: UInt32 { UInt32(1000000 * timeScale) }
+    private var timeScale: Double = 1
+    
+    private var tracks: [Track] = []
+    private var currentTrackIndex: Int = 0
+    private var lastTrackLocation: CLLocationCoordinate2D?
+    private var timer: Timer?
 
     init(mapView: MapView) {
         self.mapView = mapView
@@ -154,6 +158,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
                 self.mapView.mkMapView.removeOverlay(currentRoute.polyline)
             }
             self.route = route
+            self.tracks = []
             self.mapView.mkMapView.addOverlay((route.polyline), level: MKOverlayLevel.aboveRoads)
 
             let rect = route.polyline.boundingMapRect
@@ -162,77 +167,79 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     }
 
     func simulateRoute() {
+        simulateRouteV2()
+    }
+    
+    func simulateRouteV2() {
+        self.runRouteSimulation()
+    }
+    
+    private func runRouteSimulation() {
         guard let route = route else {
             showAlert("No route for simulation")
             return
         }
-
+        
         let buffer = UnsafeBufferPointer(start: route.polyline.points(), count: route.polyline.pointCount)
-        var points: [MKMapPoint] = [MKMapPoint]()
+        
         for i in 0..<route.polyline.pointCount {
-            points.append(buffer[i])
+            let trackStartPoint = buffer[i]
+            var trackEndPoint: MKMapPoint?
+            if i + 1 < route.polyline.pointCount {
+                trackEndPoint = buffer[i+1]
+            }
+            
+            if let trackEndPoint = trackEndPoint {
+                tracks.append(Track(startPoint: trackStartPoint, endPoint: trackEndPoint))
+            }
         }
-
-        guard points.count > 0 else { return }
-
+        
+        // prints all tracks distances
+        print(tracks.map { CLLocation.distance(from: $0.startPoint.coordinate, to: $0.endPoint.coordinate) })
+        
+        timer?.invalidate()
         isSimulating = true
-        simulationQueue.async {
-            self.run(location: points[0].coordinate)
-            usleep(self.updateTime)
-
-            var index = 0
-            var lastTime = Date().timeIntervalSince1970
-
-            while index < points.count && self.isSimulating {
-                let speedMS = self.speed / 3.6
-                let coordinate = points[index].coordinate
-                if index < points.count - 1 {
-                    let nextCoordinate = points[index + 1].coordinate
-                    let distance = CLLocation.distance(from: coordinate, to: nextCoordinate)
-                    let now = Date().timeIntervalSince1970
-                    print(">>>: speed: \(speedMS), distance: \(distance), time: \(now - lastTime)")
-                    lastTime = now
-
-                    if distance <= speedMS {
-                        let now = Date().timeIntervalSince1970
-                        print(">>>: speed: \(speedMS), distance: \(distance), time: \(now - lastTime)")
-                        lastTime = now
-                        
-                        self.run(location: nextCoordinate)
-                        DispatchQueue.main.async {
-                            self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
-                            self.currentSimulationAnnotation.coordinate = nextCoordinate
-                            self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
-                        }
-                    } else {
-                        let iterationsCount: Int = Int(((distance / speedMS) / self.timeScale).rounded(.up))
-
-                        var iteration = 0
-
-                        while iteration < iterationsCount && self.isSimulating {
-                            let fraction = 1.0 / Double(iterationsCount) * Double(iteration)
-                            let lon = fraction * nextCoordinate.longitude + (1 - fraction) * coordinate.longitude
-                            let lat = fraction * nextCoordinate.latitude + (1 - fraction) * coordinate.latitude
-                            let newCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
-                            self.run(location: newCoordinate)
-                            DispatchQueue.main.async {
-                                self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
-                                self.currentSimulationAnnotation.coordinate = newCoordinate
-                                self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
-                            }
-                            iteration += 1
-                            usleep(self.updateTime)
-                        }
-                    }
-                }
-                index += 1
-                usleep(self.updateTime)
-            }
-
-            DispatchQueue.main.async {
+        lastTrackLocation = nil
+        currentTrackIndex = 0
+        
+        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { timer in
+            guard self.isSimulating, self.tracks.count > 0, self.currentTrackIndex < self.tracks.count else {
                 self.isSimulating = false
+                self.timer = nil
+                self.currentTrackIndex = 0
+                timer.invalidate()
+                return
+            }
+            
+            let track = self.tracks[self.currentTrackIndex]
+            let trackMove = track.getNextLocation(
+                from: self.lastTrackLocation,
+                speed: (self.speed / 3.6) * self.timeScale
+            )
+            
+            print()
+            
+            switch trackMove {
+            case .moveTo(let to, let from, let speed):
+                self.lastTrackLocation = to
+                self.run(location: to)
+                self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
+                self.currentSimulationAnnotation.coordinate = to
+                self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
+                print("move to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
+                
+            case .finishTo(let to, let from, let speed):
+                self.lastTrackLocation = nil
+                self.currentTrackIndex += 1
+                self.run(location: to)
+                self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
+                self.currentSimulationAnnotation.coordinate = to
+                self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
+                print("finish to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
             }
         }
+        
+        self.timer = timer
     }
 
     func updateMapRegion(force: Bool = false) {

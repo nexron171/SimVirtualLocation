@@ -22,6 +22,7 @@
 		ED82D39227C1FC8C0093656B /* MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED82D39127C1FC8C0093656B /* MapView.swift */; };
 		ED87CA2027B1B42F001315D7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ED87CA1F27B1B42F001315D7 /* Assets.xcassets */; };
 		ED8824F627C38044007499B7 /* LocationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED8824F527C38044007499B7 /* LocationController.swift */; };
+		EDB5434928154ACE002182FF /* Track.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB5434828154ACE002182FF /* Track.swift */; };
 		EDF88CA6280EDAE300D8C794 /* helper-app.apk in Resources */ = {isa = PBXBuildFile; fileRef = EDF88CA5280EDADD00D8C794 /* helper-app.apk */; };
 /* End PBXBuildFile section */
 
@@ -42,6 +43,7 @@
 		ED87CA1827B1B42F001315D7 /* SimVirtualLocation.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SimVirtualLocation.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED87CA1F27B1B42F001315D7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		ED8824F527C38044007499B7 /* LocationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationController.swift; sourceTree = "<group>"; };
+		EDB5434828154ACE002182FF /* Track.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Track.swift; sourceTree = "<group>"; };
 		EDC18D1827C3AC9E00584479 /* SimVirtualLocation.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SimVirtualLocation.entitlements; sourceTree = "<group>"; };
 		EDF88CA5280EDADD00D8C794 /* helper-app.apk */ = {isa = PBXFileReference; lastKnownFileType = file; path = "helper-app.apk"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -102,6 +104,7 @@
 			children = (
 				ED76C13727C1606E00E74500 /* Simulator.swift */,
 				ED66969927C3E388007CC068 /* Device.swift */,
+				EDB5434828154ACE002182FF /* Track.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -219,6 +222,7 @@
 				ED5EB084280DE263004D3559 /* LocationSettingsPanel.swift in Sources */,
 				ED82D39027C1FC4D0093656B /* ContentView.swift in Sources */,
 				ED66969A27C3E388007CC068 /* Device.swift in Sources */,
+				EDB5434928154ACE002182FF /* Track.swift in Sources */,
 				ED5EB082280DE1E3004D3559 /* iOSDeviceSettings.swift in Sources */,
 				ED76C13827C1606E00E74500 /* Simulator.swift in Sources */,
 			);
@@ -363,7 +367,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 2.2;
+				MARKETING_VERSION = 2.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.devnex.SimVirtualLocation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -392,7 +396,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 2.2;
+				MARKETING_VERSION = 2.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.devnex.SimVirtualLocation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
