@@ -51,12 +51,19 @@ struct LocationSettingsPanel: View {
 
             GroupBox {
                 VStack(alignment: .leading) {
-                    Slider(value: $locationController.speed, in: 5...250) {
+                    Slider(value: $locationController.speed, in: 5...200, step: 5) {
                         Text("Speed")
                     }
                     Text("\(Int(locationController.speed.rounded(.up))) km/h")
                 }
-
+            }
+            
+            GroupBox {
+                Picker("Location update frequency", selection: $locationController.timeScale) {
+                    Text("250ms").tag(0.25)
+                    Text("500ms").tag(0.5)
+                    Text("1s").tag(1.0)
+                }.pickerStyle(.segmented).disabled(locationController.isSimulating)
             }
 
             Spacer()

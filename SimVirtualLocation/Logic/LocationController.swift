@@ -28,17 +28,23 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
     private let mapView: MapView
     private let currentSimulationAnnotation = MKPointAnnotation()
-
     private let locationManager = CLLocationManager()
-    private let simulationQueue = DispatchQueue(label: "simulation", qos: .utility)
+    private let defaults: UserDefaults = UserDefaults.standard
 
     private var isMapCentered = false
     private var annotations: [MKAnnotation] = []
     private var route: MKRoute?
-    private var isSimulating = false
     
-    private let defaults: UserDefaults = UserDefaults.standard
+    private var tracks: [Track] = []
+    private var currentTrackIndex: Int = 0
+    private var lastTrackLocation: CLLocationCoordinate2D?
+    private var tracksTimes: [Track: Double] = [:]
+    
+    private var timer: Timer?
+    
+    var alertText: String = ""
 
+    @Published var isSimulating = false
     @Published var speed: Double = 60.0
     @Published var pointsMode: PointsMode = .single {
         didSet { handlePointsModeChange() }
@@ -56,14 +62,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     @Published var adbPath: String = ""
     @Published var adbDeviceId: String = ""
     
-    var alertText: String = ""
-
-    private var timeScale: Double = 1
-    
-    private var tracks: [Track] = []
-    private var currentTrackIndex: Int = 0
-    private var lastTrackLocation: CLLocationCoordinate2D?
-    private var timer: Timer?
+    @Published var timeScale: Double = 0.5
 
     init(mapView: MapView) {
         self.mapView = mapView
@@ -167,14 +166,6 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     }
 
     func simulateRoute() {
-        simulateRouteV2()
-    }
-    
-    func simulateRouteV2() {
-        self.runRouteSimulation()
-    }
-    
-    private func runRouteSimulation() {
         guard let route = route else {
             showAlert("No route for simulation")
             return
@@ -208,6 +199,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
                 self.timer = nil
                 self.currentTrackIndex = 0
                 timer.invalidate()
+                self.printTimes()
                 return
             }
             
@@ -217,26 +209,25 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
                 speed: (self.speed / 3.6) * self.timeScale
             )
             
-            print()
+            self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
             
             switch trackMove {
             case .moveTo(let to, let from, let speed):
                 self.lastTrackLocation = to
                 self.run(location: to)
-                self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
                 self.currentSimulationAnnotation.coordinate = to
-                self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
                 print("move to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
                 
             case .finishTo(let to, let from, let speed):
                 self.lastTrackLocation = nil
                 self.currentTrackIndex += 1
                 self.run(location: to)
-                self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
                 self.currentSimulationAnnotation.coordinate = to
-                self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
                 print("finish to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
             }
+            
+            self.tracksTimes[track] = (self.tracksTimes[track] ?? 0) + self.timeScale
+            self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
         }
         
         self.timer = timer
@@ -308,6 +299,14 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
     func reset() {
         resetAll()
+    }
+    
+    private func printTimes() {
+        tracksTimes.forEach { track, time in
+            let distance = CLLocation.distance(from: track.startPoint.coordinate, to: track.endPoint.coordinate)
+            let speed = distance / time
+            print("Track result: speed=\(speed * 3.6), distance=\(distance), time=\(time)")
+        }
     }
 
     private func handlePointsModeChange() {

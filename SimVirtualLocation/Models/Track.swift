@@ -9,7 +9,7 @@ import Foundation
 import CoreLocation
 import MapKit
 
-struct Track {
+struct Track: Hashable {
     
     enum TrackLocationResult {
         case moveTo(to: CLLocationCoordinate2D, from: CLLocationCoordinate2D, withSpeed: Double)
@@ -35,5 +35,21 @@ struct Track {
             
             return .moveTo(to: CLLocationCoordinate2D(latitude: lat, longitude: lon), from: startLocation, withSpeed: speed)
         }
+    }
+    
+    // MARK: - Hashable
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(startPoint.x)
+        hasher.combine(startPoint.y)
+        hasher.combine(endPoint.x)
+        hasher.combine(endPoint.y)
+    }
+    
+    static func == (lhs: Track, rhs: Track) -> Bool {
+        return lhs.startPoint.x == rhs.startPoint.x &&
+            lhs.startPoint.y == rhs.startPoint.y &&
+            lhs.endPoint.x == rhs.endPoint.x &&
+            lhs.endPoint.y == rhs.endPoint.y
     }
 }
