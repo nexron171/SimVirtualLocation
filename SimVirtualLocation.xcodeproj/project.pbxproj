@@ -23,6 +23,7 @@
 		ED87CA2027B1B42F001315D7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ED87CA1F27B1B42F001315D7 /* Assets.xcassets */; };
 		ED8824F627C38044007499B7 /* LocationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED8824F527C38044007499B7 /* LocationController.swift */; };
 		EDB5434928154ACE002182FF /* Track.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB5434828154ACE002182FF /* Track.swift */; };
+		EDEF747D283621EB00319E02 /* Runner.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDEF747C283621EB00319E02 /* Runner.swift */; };
 		EDF88CA6280EDAE300D8C794 /* helper-app.apk in Resources */ = {isa = PBXBuildFile; fileRef = EDF88CA5280EDADD00D8C794 /* helper-app.apk */; };
 /* End PBXBuildFile section */
 
@@ -45,6 +46,7 @@
 		ED8824F527C38044007499B7 /* LocationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationController.swift; sourceTree = "<group>"; };
 		EDB5434828154ACE002182FF /* Track.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Track.swift; sourceTree = "<group>"; };
 		EDC18D1827C3AC9E00584479 /* SimVirtualLocation.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SimVirtualLocation.entitlements; sourceTree = "<group>"; };
+		EDEF747C283621EB00319E02 /* Runner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner.swift; sourceTree = "<group>"; };
 		EDF88CA5280EDADD00D8C794 /* helper-app.apk */ = {isa = PBXFileReference; lastKnownFileType = file; path = "helper-app.apk"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -95,6 +97,7 @@
 			children = (
 				ED8824F527C38044007499B7 /* LocationController.swift */,
 				ED76C13927C160A200E74500 /* NotificationSender.swift */,
+				EDEF747C283621EB00319E02 /* Runner.swift */,
 			);
 			path = Logic;
 			sourceTree = "<group>";
@@ -225,6 +228,7 @@
 				EDB5434928154ACE002182FF /* Track.swift in Sources */,
 				ED5EB082280DE1E3004D3559 /* iOSDeviceSettings.swift in Sources */,
 				ED76C13827C1606E00E74500 /* Simulator.swift in Sources */,
+				EDEF747D283621EB00319E02 /* Runner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -367,7 +371,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 2.4;
+				MARKETING_VERSION = 2.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.devnex.SimVirtualLocation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -396,7 +400,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 2.4;
+				MARKETING_VERSION = 2.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.devnex.SimVirtualLocation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

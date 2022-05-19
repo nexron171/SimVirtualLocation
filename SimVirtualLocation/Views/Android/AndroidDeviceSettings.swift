@@ -14,12 +14,21 @@ struct AndroidDeviceSettings: View {
         GroupBox {
             TextField("ADB path", text: $locationController.adbPath)
             TextField("Device ID", text: $locationController.adbDeviceId)
+            Toggle("Is emulator", isOn: $locationController.isEmulator)
             
-            Button(action: {
-                locationController.installHelperApp()
-            }, label: {
-                Text("Install Helper App").frame(maxWidth: .infinity)
-            })
+            if (locationController.isEmulator) {
+                Button(action: {
+                    locationController.prepareEmulator()
+                }, label: {
+                    Text("Prepare emulator").frame(maxWidth: .infinity)
+                })
+            } else {
+                Button(action: {
+                    locationController.installHelperApp()
+                }, label: {
+                    Text("Install Helper App").frame(maxWidth: .infinity)
+                })
+            }
         }
     }
 }

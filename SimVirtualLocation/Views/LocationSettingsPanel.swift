@@ -24,11 +24,31 @@ struct LocationSettingsPanel: View {
                     Text("Set to current location").frame(maxWidth: .infinity)
                 })
 
-                Button(action: {
-                    locationController.setSelectedLocation()
-                }, label: {
-                    Text("Set to A point").frame(maxWidth: .infinity)
-                })
+                HStack {
+                    Button(action: {
+                        locationController.setSelectedLocation()
+                    }, label: {
+                        Text("Set to A").frame(maxWidth: .infinity)
+                    })
+                    Button(action: {
+                        locationController.simulatePoint()
+                    }, label: {
+                        Text("Simulate to A").frame(maxWidth: .infinity)
+                    })
+                }
+                
+                HStack {
+                    Button(action: {
+                        locationController.setSelectedLocation(toBPoint: true)
+                    }, label: {
+                        Text("Set to B").frame(maxWidth: .infinity)
+                    })
+                    Button(action: {
+                        locationController.simulatePoint(toBPoint: true)
+                    }, label: {
+                        Text("Simulate to B").frame(maxWidth: .infinity)
+                    })
+                }
 
                 Button(action: {
                     locationController.makeRoute()

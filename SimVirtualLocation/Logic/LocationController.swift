@@ -27,6 +27,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     }
 
     private let mapView: MapView
+    private let runner = Runner()
     private let currentSimulationAnnotation = MKPointAnnotation()
     private let locationManager = CLLocationManager()
     private let defaults: UserDefaults = UserDefaults.standard
@@ -61,6 +62,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     @Published var deviceType: Int = 0
     @Published var adbPath: String = ""
     @Published var adbDeviceId: String = ""
+    @Published var isEmulator: Bool = false
     
     @Published var timeScale: Double = 0.5
 
@@ -80,6 +82,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         deviceType = defaults.integer(forKey: "device_type")
         adbPath = defaults.string(forKey: "adb_path") ?? ""
         adbDeviceId = defaults.string(forKey: "adb_device_id") ?? ""
+        isEmulator = defaults.bool(forKey: "is_emulator")
     }
 
     func refreshDevices() {
@@ -98,12 +101,20 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         run(location: location)
     }
 
-    func setSelectedLocation() {
-        guard let annotation = annotations.first else {
-            showAlert("Point A is not selected")
-            return
+    func setSelectedLocation(toBPoint: Bool = false) {
+        if toBPoint {
+            guard annotations.count == 2 else {
+                showAlert("Point B is not selected")
+                return
+            }
+            run(location: annotations[1].coordinate)
+        } else {
+            guard let annotation = annotations.first else {
+                showAlert("Point A is not selected")
+                return
+            }
+            run(location: annotation.coordinate)
         }
-        run(location: annotation.coordinate)
     }
 
     func makeRoute() {
@@ -163,6 +174,39 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             let rect = route.polyline.boundingMapRect
             self.mapView.mkMapView.setRegion(MKCoordinateRegion(rect.insetBy(dx: -1000, dy: -1000)), animated: true)
         }
+    }
+    
+    func simulatePoint(toBPoint: Bool = false) {
+        let location: CLLocationCoordinate2D
+        
+        if toBPoint {
+            guard annotations.count == 2 else {
+                showAlert("Point B is not selected")
+                return
+            }
+            location = annotations[1].coordinate
+        } else {
+            guard let annotation = annotations.first else {
+                showAlert("Point A is not selected")
+                return
+            }
+            location = annotation.coordinate
+        }
+        
+        timer?.invalidate()
+        isSimulating = true
+        
+        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { [location] timer in
+            guard self.isSimulating else {
+                self.isSimulating = false
+                self.timer = nil
+                timer.invalidate()
+                return
+            }
+            self.run(location: location)
+        }
+        
+        self.timer = timer
     }
 
     func simulateRoute() {
@@ -249,6 +293,58 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         let adjustedRegion = mapView.mkMapView.regionThatFits(viewRegion)
 
         mapView.mkMapView.setRegion(adjustedRegion, animated: true)
+    }
+    
+    func prepareEmulator() {
+        if adbDeviceId.isEmpty {
+            showAlert("Please specify device id")
+            return
+        }
+        
+        if adbPath.isEmpty {
+            showAlert("Please specify path to adb")
+            return
+        }
+        
+        executeAdbCommand(args: ["shell", "settings", "put", "secure", "location_providers_allowed", "+gps"])
+        executeAdbCommand(args: ["shell", "settings", "put", "secure", "location_providers_allowed", "+network"])
+    }
+    
+    private func executeAdbCommand(args: [String]) {
+        if adbDeviceId.isEmpty {
+            showAlert("Please specify device id")
+            return
+        }
+        
+        if adbPath.isEmpty {
+            showAlert("Please specify path to adb")
+            return
+        }
+        
+        let task = Process()
+        task.executableURL = URL(string: "file://\(adbPath)")!
+        task.arguments = args
+
+        let errorPipe = Pipe()
+
+        task.standardError = errorPipe
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            showAlert(error.localizedDescription)
+            return
+        }
+
+        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        let error = String(decoding: errorData, as: UTF8.self)
+
+        if !error.isEmpty {
+            showAlert(error)
+        } else {
+            showAlert("Helper app successfully installed. Please open MockLocationForDeveloper app on your phone and grant all required permissions")
+        }
     }
     
     func installHelperApp() {
@@ -352,6 +448,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         defaults.set(deviceType, forKey: "device_type")
         defaults.set(adbPath, forKey: "adb_path")
         defaults.set(adbDeviceId, forKey: "adb_device_id")
+        defaults.set(isEmulator, forKey: "is_emulator")
         
         if deviceType != 0 {
             do {
@@ -361,36 +458,11 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             }
             return
         }
-        if deviceMode == .simulator {
-            do {
-                try runOnSimulator(location: location)
-            } catch {
-                showAlert("\(error)")
-            }
-            return
-        }
-        
-        let task = taskForIOS(args: ["--", "\(location.latitude)", "\(location.longitude)"], selectedDevice: selectedDevice)
-        let errorPipe = Pipe()
-
-        task.standardError = errorPipe
-
-        do {
-            try task.run()
-        } catch {
-            showAlert(error.localizedDescription)
-            return
-        }
-
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let error = String(decoding: errorData, as: UTF8.self)
-
-        if !error.isEmpty {
-            showAlert(error + """
-            
-            Try to install: `brew install libimobiledevice`
-            """)
-        }
+        runner.runOnIos(
+            location: location,
+            selectedDevice: selectedDevice,
+            showAlert: showAlert
+        )
     }
 
     private func runOnSimulator(location: CLLocationCoordinate2D) throws {
@@ -417,58 +489,13 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             return
         }
         
-        let task = taskForAndroid(
-            args: [
-                "-s", adbDeviceId,
-                "shell", "am", "broadcast",
-                "-a", "send.mock",
-                "-e", "lat", "\(location.latitude)",
-                "-e", "lon", "\(location.longitude)"
-            ]
+        runner.runOnAndroid(
+            location: location,
+            adbDeviceId: adbDeviceId,
+            adbPath: adbPath,
+            isEmulator: isEmulator,
+            showAlert: showAlert
         )
-
-        let errorPipe = Pipe()
-
-        task.standardError = errorPipe
-
-        do {
-            try task.run()
-            task.waitUntilExit()
-        } catch {
-            showAlert(error.localizedDescription)
-            return
-        }
-
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let error = String(decoding: errorData, as: UTF8.self)
-
-        if !error.isEmpty {
-            showAlert(error)
-        }
-    }
-    
-    private func taskForIOS(args: [String], selectedDevice: String?) -> Process {
-        let path: URL = Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
-        
-        var args = args
-        if let selectedDevice = selectedDevice, selectedDevice != "" {
-            args = ["-u", selectedDevice] + args
-        }
-
-        let task = Process()
-        task.executableURL = path
-        task.arguments = args
-        
-        return task
-    }
-    
-    private func taskForAndroid(args: [String]) -> Process {
-        let path = adbPath
-        let task = Process()
-        task.executableURL = URL(string: "file://\(path)")!
-        task.arguments = args
-        
-        return task
     }
 
     private func resetAll() {
@@ -479,43 +506,19 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             mapView.mkMapView.removeOverlay(route.polyline)
         }
 
-        let task: Process
-        
         if deviceType == 0 {
-            task = taskForIOS(args: ["-s"], selectedDevice: nil)
+            runner.resetIos(showAlert: showAlert)
         } else {
-            task = taskForAndroid(
-                args: [
-                    "-s", adbDeviceId,
-                    "shell", "am", "broadcast",
-                    "-a", "stop.mock"
-                ]
-            )
+            runner.resetAndroid(adbDeviceId: adbDeviceId, adbPath: adbPath, showAlert: showAlert)
         }
-        
-        let errorPipe = Pipe()
-
-        task.standardError = errorPipe
-
-        do {
-            try task.run()
-        } catch {
-            showAlert(error.localizedDescription)
-        }
-
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let error = String(decoding: errorData, as: UTF8.self)
-
-        if !error.isEmpty {
-            showAlert(error)
-        }
-
-        task.waitUntilExit()
     }
 
     private func showAlert(_ text: String) {
-        alertText = text
-        showingAlert = true
+        DispatchQueue.main.async {
+            self.alertText = text
+            self.showingAlert = true
+            self.isSimulating = false
+        }
     }
 
     // MARK: - MKMapViewDelegate
