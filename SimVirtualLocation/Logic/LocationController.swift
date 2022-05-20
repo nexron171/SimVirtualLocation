@@ -73,6 +73,8 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = kCLDistanceFilterNone
+        locationManager.startUpdatingLocation()
+        locationManager.requestLocation()
 
         mapView.mkMapView.delegate = self
         mapView.clickAction = handleMapClick
@@ -282,8 +284,11 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             locationManager.requestWhenInUseAuthorization()
             return
         }
-
-        guard !isMapCentered || force, let location = locationManager.location else { return }
+        
+        guard !isMapCentered || force, let location = locationManager.location else {
+            locationManager.requestAlwaysAuthorization()
+            return
+        }
 
         isMapCentered = true
 
@@ -293,6 +298,8 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         let adjustedRegion = mapView.mkMapView.regionThatFits(viewRegion)
 
         mapView.mkMapView.setRegion(adjustedRegion, animated: true)
+        
+        mapView.mkMapView.showsUserLocation = true
     }
     
     func prepareEmulator() {
@@ -307,10 +314,13 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         }
         
         executeAdbCommand(args: ["shell", "settings", "put", "secure", "location_providers_allowed", "+gps"])
-        executeAdbCommand(args: ["shell", "settings", "put", "secure", "location_providers_allowed", "+network"])
+        executeAdbCommand(
+            args: ["shell", "settings", "put", "secure", "location_providers_allowed", "+network"],
+            successMessage: "Emulator is ready"
+        )
     }
     
-    private func executeAdbCommand(args: [String]) {
+    private func executeAdbCommand(args: [String], successMessage: String? = nil) {
         if adbDeviceId.isEmpty {
             showAlert("Please specify device id")
             return
@@ -342,8 +352,8 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
         if !error.isEmpty {
             showAlert(error)
-        } else {
-            showAlert("Helper app successfully installed. Please open MockLocationForDeveloper app on your phone and grant all required permissions")
+        } else if let successMessage = successMessage {
+            showAlert(successMessage)
         }
     }
     
@@ -359,34 +369,12 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         }
         
         let apkPath = Bundle.main.url(forResource: "helper-app", withExtension: "apk")!.path
-        
-        let path = adbPath
         let args = ["-s", adbDeviceId, "install", apkPath]
-
-        let task = Process()
-        task.executableURL = URL(string: "file://\(path)")!
-        task.arguments = args
-
-        let errorPipe = Pipe()
-
-        task.standardError = errorPipe
-
-        do {
-            try task.run()
-            task.waitUntilExit()
-        } catch {
-            showAlert(error.localizedDescription)
-            return
-        }
-
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let error = String(decoding: errorData, as: UTF8.self)
-
-        if !error.isEmpty {
-            showAlert(error)
-        } else {
-            showAlert("Helper app successfully installed. Please open MockLocationForDeveloper app on your phone and grant all required permissions")
-        }
+        
+        executeAdbCommand(
+            args: args,
+            successMessage: "Helper app successfully installed. Please open MockLocationForDeveloper app on your phone and grant all required permissions"
+        )
     }
 
     func stopSimulation() {
@@ -550,6 +538,10 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         updateMapRegion()
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print(error.localizedDescription)
     }
 }
 
