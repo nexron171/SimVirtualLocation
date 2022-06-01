@@ -446,24 +446,24 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             }
             return
         }
-        runner.runOnIos(
-            location: location,
-            selectedDevice: selectedDevice,
-            showAlert: showAlert
-        )
-    }
-
-    private func runOnSimulator(location: CLLocationCoordinate2D) throws {
-        if bootedSimulators.isEmpty {
-            isSimulating = false
-            throw SimulatorFetchError.noBootedSimulators
+        if deviceMode == .device {
+            runner.runOnIos(
+                location: location,
+                selectedDevice: selectedDevice,
+                showAlert: showAlert
+            )
+        } else {
+            if bootedSimulators.isEmpty {
+                isSimulating = false
+                showAlert(SimulatorFetchError.noBootedSimulators.description)
+            }
+            runner.runOnSimulator(
+                location: location,
+                selectedSimulator: selectedSimulator,
+                bootedSimulators: bootedSimulators,
+                showAlert: showAlert
+            )
         }
-
-        let simulators = bootedSimulators
-            .filter { $0.id == selectedSimulator || selectedSimulator == "" }
-            .map { $0.id }
-
-        NotificationSender.postNotification(for: location, to: simulators)
     }
     
     private func runOnAndroid(location: CLLocationCoordinate2D) throws {

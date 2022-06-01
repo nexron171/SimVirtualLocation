@@ -13,6 +13,19 @@ class Runner {
     private let executionQueue = DispatchQueue(label: "runner_queue", qos: .background)
     private var idevicelocationPath: URL?
     
+    func runOnSimulator(
+        location: CLLocationCoordinate2D,
+        selectedSimulator: String,
+        bootedSimulators: [Simulator],
+        showAlert: @escaping (String) -> Void
+    ) {
+        let simulators = bootedSimulators
+            .filter { $0.id == selectedSimulator || selectedSimulator == "" }
+            .map { $0.id }
+
+        NotificationSender.postNotification(for: location, to: simulators)
+    }
+    
     func runOnIos(
         location: CLLocationCoordinate2D,
         selectedDevice: String,
