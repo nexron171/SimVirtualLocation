@@ -14,6 +14,9 @@ You can dowload compiled and signed app [here](https://github.com/nexron171/SimV
 
 ## FAQ
 ---
+### How to run
+If you see an alert with warning that app is corrupted and Apple can not check the developer: try to press and hold `ctrl`, then click on SimVirtualLocation.app and select "Open", release `ctrl`. Now alert should have the "Open" button. Don't forget to copy app from dmg image to any place on your Mac.
+
 ### For iOS devices
 `libimobiledevice` and `libzip` are should be installed on mac ? through `brew`
 
