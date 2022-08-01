@@ -567,7 +567,7 @@ private extension LocationController {
 
         let output = String(data: data, encoding: .utf8)?
             .split(separator: "\n")
-            .filter { ($0.contains("iPhone") || $0.contains("iPad")) && !$0.contains("Simulator") }
+            .filter { !$0.contains("Simulator") }
 
         var connectedDevices: [Device] = []
         output?.forEach { line in
