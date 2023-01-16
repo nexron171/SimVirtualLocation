@@ -63,6 +63,12 @@ struct LocationSettingsPanel: View {
                 })
 
                 Button(action: {
+                    locationController.simulateFromAToB()
+                }, label: {
+                    Text("Simulate from A to B").frame(maxWidth: .infinity)
+                })
+
+                Button(action: {
                     locationController.stopSimulation()
                 }, label: {
                     Text("Stop simulation").frame(maxWidth: .infinity)

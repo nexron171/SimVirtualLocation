@@ -77,7 +77,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         locationManager.requestLocation()
 
         mapView.mkMapView.delegate = self
-        mapView.clickAction = handleMapClick
+        mapView.viewHolder.clickAction = handleMapClick
 
         refreshDevices()
         
@@ -276,6 +276,64 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
         }
         
+        self.timer = timer
+    }
+
+    // QUICK FIX; TODO - remove copy paste code
+    func simulateFromAToB() {
+        guard annotations.count == 2 else {
+            showAlert("Route requires two points")
+            return
+        }
+
+        let startPoint = annotations[0]
+        let endPoint = annotations[1]
+
+        stopSimulation()
+        tracks = [Track(startPoint: MKMapPoint(startPoint.coordinate), endPoint: MKMapPoint(endPoint.coordinate))]
+
+        timer?.invalidate()
+        isSimulating = true
+        lastTrackLocation = nil
+        currentTrackIndex = 0
+
+        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { timer in
+            guard self.isSimulating, self.tracks.count > 0, self.currentTrackIndex < self.tracks.count else {
+                self.isSimulating = false
+                self.timer = nil
+                self.currentTrackIndex = 0
+                timer.invalidate()
+                self.printTimes()
+                return
+            }
+
+            let track = self.tracks[self.currentTrackIndex]
+            let trackMove = track.getNextLocation(
+                from: self.lastTrackLocation,
+                speed: (self.speed / 3.6) * self.timeScale
+            )
+
+            self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
+
+            switch trackMove {
+                case .moveTo(let to, let from, let speed):
+                    self.lastTrackLocation = to
+                    self.run(location: to)
+                    self.currentSimulationAnnotation.coordinate = to
+                    print("move to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
+
+                case .finishTo(let to, let from, let speed):
+                    self.lastTrackLocation = nil
+                    self.currentTrackIndex += 1
+                    self.run(location: to)
+                    self.currentSimulationAnnotation.coordinate = to
+                    print("finish to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
+            }
+
+            self.tracksTimes[track] = (self.tracksTimes[track] ?? 0) + self.timeScale
+            self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
+        }
+
         self.timer = timer
     }
 

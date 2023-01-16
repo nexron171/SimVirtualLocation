@@ -8,16 +8,28 @@
 import MapKit
 import SwiftUI
 
-final class MapView: NSViewRepresentable {
+struct MapView: NSViewRepresentable {
 
     typealias NSViewType = MKMapView
 
+    var mkMapView: MKMapView { viewHolder.mkMapView }
+
+    let viewHolder = MapViewHolder()
+
+    func makeNSView(context: Context) -> MKMapView {
+        return viewHolder.makeNSView()
+    }
+
+    func updateNSView(_ nsView: MKMapView, context: Context) {}
+}
+
+class MapViewHolder {
     private let mapView = MKMapView()
     var mkMapView: MKMapView { mapView }
 
     var clickAction: (NSClickGestureRecognizer) -> Void = {_ in }
 
-    func makeNSView(context: Context) -> MKMapView {
+    func makeNSView() -> MKMapView {
         let clickGesture = NSClickGestureRecognizer(
             target: self,
             action: #selector(self.handleClickGesture(_:)))
@@ -26,8 +38,6 @@ final class MapView: NSViewRepresentable {
 
         return mapView
     }
-
-    func updateNSView(_ nsView: MKMapView, context: Context) { }
 
     @objc private func handleClickGesture(_ sender: NSClickGestureRecognizer) {
         clickAction(sender)
