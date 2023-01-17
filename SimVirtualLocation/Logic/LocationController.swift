@@ -12,6 +12,8 @@ import MachO
 
 class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocationManagerDelegate {
 
+    // MARK: - Enums
+
     enum DeviceMode: Int, Identifiable {
         case simulator
         case device
@@ -26,24 +28,11 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         var id: Int { self.rawValue }
     }
 
-    private let mapView: MapView
-    private let runner = Runner()
-    private let currentSimulationAnnotation = MKPointAnnotation()
-    private let locationManager = CLLocationManager()
-    private let defaults: UserDefaults = UserDefaults.standard
+    // MARK: - Public
 
-    private var isMapCentered = false
-    private var annotations: [MKAnnotation] = []
-    private var route: MKRoute?
-    
-    private var tracks: [Track] = []
-    private var currentTrackIndex: Int = 0
-    private var lastTrackLocation: CLLocationCoordinate2D?
-    private var tracksTimes: [Track: Double] = [:]
-    
-    private var timer: Timer?
-    
     var alertText: String = ""
+
+    // MARK: - Publishers
 
     @Published var isSimulating = false
     @Published var speed: Double = 60.0
@@ -63,8 +52,29 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     @Published var adbPath: String = ""
     @Published var adbDeviceId: String = ""
     @Published var isEmulator: Bool = false
-    
+
     @Published var timeScale: Double = 0.5
+
+    // MARK: - Private
+
+    private let mapView: MapView
+    private let runner = Runner()
+    private let currentSimulationAnnotation = MKPointAnnotation()
+    private let locationManager = CLLocationManager()
+    private let defaults: UserDefaults = UserDefaults.standard
+
+    private var isMapCentered = false
+    private var annotations: [MKAnnotation] = []
+    private var route: MKRoute?
+    
+    private var tracks: [Track] = []
+    private var currentTrackIndex: Int = 0
+    private var lastTrackLocation: CLLocationCoordinate2D?
+    private var tracksTimes: [Track: Double] = [:]
+    
+    private var timer: Timer?
+
+    // MARK: - Init
 
     init(mapView: MapView) {
         self.mapView = mapView
@@ -86,6 +96,8 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         adbDeviceId = defaults.string(forKey: "adb_device_id") ?? ""
         isEmulator = defaults.bool(forKey: "is_emulator")
     }
+
+    // MARK: - Public
 
     func refreshDevices() {
         bootedSimulators = (try? getBootedSimulators()) ?? []
@@ -234,52 +246,15 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         // prints all tracks distances
         print(tracks.map { CLLocation.distance(from: $0.startPoint.coordinate, to: $0.endPoint.coordinate) })
         
-        timer?.invalidate()
-        isSimulating = true
-        lastTrackLocation = nil
-        currentTrackIndex = 0
+        invalidateState()
         
-        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { timer in
-            guard self.isSimulating, self.tracks.count > 0, self.currentTrackIndex < self.tracks.count else {
-                self.isSimulating = false
-                self.timer = nil
-                self.currentTrackIndex = 0
-                timer.invalidate()
-                self.printTimes()
-                return
-            }
-            
-            let track = self.tracks[self.currentTrackIndex]
-            let trackMove = track.getNextLocation(
-                from: self.lastTrackLocation,
-                speed: (self.speed / 3.6) * self.timeScale
-            )
-            
-            self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
-            
-            switch trackMove {
-            case .moveTo(let to, let from, let speed):
-                self.lastTrackLocation = to
-                self.run(location: to)
-                self.currentSimulationAnnotation.coordinate = to
-                print("move to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
-                
-            case .finishTo(let to, let from, let speed):
-                self.lastTrackLocation = nil
-                self.currentTrackIndex += 1
-                self.run(location: to)
-                self.currentSimulationAnnotation.coordinate = to
-                print("finish to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
-            }
-            
-            self.tracksTimes[track] = (self.tracksTimes[track] ?? 0) + self.timeScale
-            self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
+        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { [unowned self] timer in
+            self.performMovement()
         }
         
         self.timer = timer
     }
 
-    // QUICK FIX; TODO - remove copy paste code
     func simulateFromAToB() {
         guard annotations.count == 2 else {
             showAlert("Route requires two points")
@@ -292,46 +267,10 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         stopSimulation()
         tracks = [Track(startPoint: MKMapPoint(startPoint.coordinate), endPoint: MKMapPoint(endPoint.coordinate))]
 
-        timer?.invalidate()
-        isSimulating = true
-        lastTrackLocation = nil
-        currentTrackIndex = 0
+        invalidateState()
 
-        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { timer in
-            guard self.isSimulating, self.tracks.count > 0, self.currentTrackIndex < self.tracks.count else {
-                self.isSimulating = false
-                self.timer = nil
-                self.currentTrackIndex = 0
-                timer.invalidate()
-                self.printTimes()
-                return
-            }
-
-            let track = self.tracks[self.currentTrackIndex]
-            let trackMove = track.getNextLocation(
-                from: self.lastTrackLocation,
-                speed: (self.speed / 3.6) * self.timeScale
-            )
-
-            self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
-
-            switch trackMove {
-                case .moveTo(let to, let from, let speed):
-                    self.lastTrackLocation = to
-                    self.run(location: to)
-                    self.currentSimulationAnnotation.coordinate = to
-                    print("move to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
-
-                case .finishTo(let to, let from, let speed):
-                    self.lastTrackLocation = nil
-                    self.currentTrackIndex += 1
-                    self.run(location: to)
-                    self.currentSimulationAnnotation.coordinate = to
-                    print("finish to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
-            }
-
-            self.tracksTimes[track] = (self.tracksTimes[track] ?? 0) + self.timeScale
-            self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
+        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { [unowned self] timer in
+            self.performMovement()
         }
 
         self.timer = timer
@@ -377,6 +316,116 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             successMessage: "Emulator is ready"
         )
     }
+
+    func installHelperApp() {
+        if adbDeviceId.isEmpty {
+            showAlert("Please specify device id")
+            return
+        }
+
+        if adbPath.isEmpty {
+            showAlert("Please specify path to adb")
+            return
+        }
+
+        let apkPath = Bundle.main.url(forResource: "helper-app", withExtension: "apk")!.path
+        let args = ["-s", adbDeviceId, "install", apkPath]
+
+        executeAdbCommand(
+            args: args,
+            successMessage: "Helper app successfully installed. Please open MockLocationForDeveloper app on your phone and grant all required permissions"
+        )
+    }
+
+    func stopSimulation() {
+        isSimulating = false
+    }
+
+    func reset() {
+        resetAll()
+    }
+
+    // MARK: - MKMapViewDelegate
+
+    func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+        let renderer = MKPolylineRenderer(overlay: overlay)
+        renderer.strokeColor = NSColor(red: 17.0/255.0, green: 147.0/255.0, blue: 255.0/255.0, alpha: 1)
+        renderer.lineWidth = 5.0
+        return renderer
+    }
+
+    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+        if annotation === currentSimulationAnnotation {
+            let marker = MKMarkerAnnotationView(
+                annotation: currentSimulationAnnotation,
+                reuseIdentifier: "simulationMarker"
+            )
+            marker.markerTintColor = .orange
+            return marker
+        }
+        return nil
+    }
+
+    // MARK: - CLLocationManagerDelegate
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        updateMapRegion()
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        updateMapRegion()
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print(error.localizedDescription)
+    }
+
+    // MARK: - Private
+
+    private func invalidateState() {
+        timer?.invalidate()
+        timer = nil
+        isSimulating = true
+        lastTrackLocation = nil
+        currentTrackIndex = 0
+    }
+
+    private func performMovement() {
+        guard self.isSimulating, self.tracks.count > 0, self.currentTrackIndex < self.tracks.count else {
+            self.isSimulating = false
+            self.timer?.invalidate()
+            self.timer = nil
+            self.currentTrackIndex = 0
+            self.printTimes()
+            return
+        }
+
+        let track = self.tracks[self.currentTrackIndex]
+        let trackMove = track.getNextLocation(
+            from: self.lastTrackLocation,
+            speed: (self.speed / 3.6) * self.timeScale
+        )
+
+        self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
+
+        switch trackMove {
+            case .moveTo(let to, let from, let speed):
+                self.lastTrackLocation = to
+                self.run(location: to)
+                self.currentSimulationAnnotation.coordinate = to
+                print("move to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
+
+            case .finishTo(let to, let from, let speed):
+                self.lastTrackLocation = nil
+                self.currentTrackIndex += 1
+                self.run(location: to)
+                self.currentSimulationAnnotation.coordinate = to
+                print("finish to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
+        }
+
+        self.tracksTimes[track] = (self.tracksTimes[track] ?? 0) + self.timeScale
+        self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
+    }
     
     private func executeAdbCommand(args: [String], successMessage: String? = nil) {
         if adbDeviceId.isEmpty {
@@ -414,35 +463,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             showAlert(successMessage)
         }
     }
-    
-    func installHelperApp() {
-        if adbDeviceId.isEmpty {
-            showAlert("Please specify device id")
-            return
-        }
-        
-        if adbPath.isEmpty {
-            showAlert("Please specify path to adb")
-            return
-        }
-        
-        let apkPath = Bundle.main.url(forResource: "helper-app", withExtension: "apk")!.path
-        let args = ["-s", adbDeviceId, "install", apkPath]
-        
-        executeAdbCommand(
-            args: args,
-            successMessage: "Helper app successfully installed. Please open MockLocationForDeveloper app on your phone and grant all required permissions"
-        )
-    }
 
-    func stopSimulation() {
-        isSimulating = false
-    }
-
-    func reset() {
-        resetAll()
-    }
-    
     private func printTimes() {
         tracksTimes.forEach { track, time in
             let distance = CLLocation.distance(from: track.startPoint.coordinate, to: track.endPoint.coordinate)
@@ -565,41 +586,6 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             self.showingAlert = true
             self.isSimulating = false
         }
-    }
-
-    // MARK: - MKMapViewDelegate
-
-    func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-        let renderer = MKPolylineRenderer(overlay: overlay)
-        renderer.strokeColor = NSColor(red: 17.0/255.0, green: 147.0/255.0, blue: 255.0/255.0, alpha: 1)
-        renderer.lineWidth = 5.0
-        return renderer
-    }
-
-    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-        if annotation === currentSimulationAnnotation {
-            let marker = MKMarkerAnnotationView(
-                annotation: currentSimulationAnnotation,
-                reuseIdentifier: "simulationMarker"
-            )
-            marker.markerTintColor = .orange
-            return marker
-        }
-        return nil
-    }
-
-    // MARK: - CLLocationManagerDelegate
-
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        updateMapRegion()
-    }
-
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        updateMapRegion()
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print(error.localizedDescription)
     }
 }
 
