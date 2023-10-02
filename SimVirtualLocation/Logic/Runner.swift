@@ -26,6 +26,15 @@ class Runner {
         NotificationSender.postNotification(for: location, to: simulators)
     }
     
+    func runOnSocket(location: CLLocationCoordinate2D,
+                     speed: Double,
+                     locationSocketServer: LocationSocketServer
+    ) {
+        executionQueue.async {
+            locationSocketServer.transferLocation(location: location, speed: speed)
+        }
+    }
+    
     func runOnIos(
         location: CLLocationCoordinate2D,
         selectedDevice: String,

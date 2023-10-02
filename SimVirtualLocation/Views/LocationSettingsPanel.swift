@@ -89,6 +89,7 @@ struct LocationSettingsPanel: View {
                     Text("250ms").tag(0.25)
                     Text("500ms").tag(0.5)
                     Text("1s").tag(1.0)
+                    Text("2s").tag(2.0)
                 }.pickerStyle(.segmented).disabled(locationController.isSimulating)
             }
 

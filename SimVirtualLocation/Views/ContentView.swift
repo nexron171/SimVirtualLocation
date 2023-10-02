@@ -58,13 +58,17 @@ struct ContentView: View {
                 Picker("Device mode", selection: $locationController.deviceType) {
                     Text("iOS").tag(0)
                     Text("Android").tag(1)
+                    Text("Scoket").tag(2)
                 }.labelsHidden().pickerStyle(.segmented)
                 
                 if locationController.deviceType == 0 {
                     iOSPanel()
                         .environmentObject(locationController)
-                } else {
+                } else if locationController.deviceType == 1 {
                     AndroidPanel()
+                        .environmentObject(locationController)
+                } else {
+                    SocketPanel()
                         .environmentObject(locationController)
                 }
                 

@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D20C83672AAB86A700CF8C1F /* LocationSocketServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20C83662AAB86A700CF8C1F /* LocationSocketServer.swift */; };
+		D20C83692AABD1D500CF8C1F /* SocketPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20C83682AABD1D500CF8C1F /* SocketPanel.swift */; };
+		D20C836B2AABD26A00CF8C1F /* SocketPanelSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20C836A2AABD26A00CF8C1F /* SocketPanelSettings.swift */; };
+		D289A85C2ACB16EB002A41B6 /* SimVirtualLocationWithSocket.apk in Resources */ = {isa = PBXBuildFile; fileRef = D289A85B2ACB16EB002A41B6 /* SimVirtualLocationWithSocket.apk */; };
+		D2ED47042AB28A58006C9A95 /* adb-join-wifi.apk in Resources */ = {isa = PBXBuildFile; fileRef = D2ED47032AB28A58006C9A95 /* adb-join-wifi.apk */; };
+		D2ED47062AB3108C006C9A95 /* WifiPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2ED47052AB3108C006C9A95 /* WifiPanel.swift */; };
+		D2ED470C2AB311D0006C9A95 /* WifiController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2ED470B2AB311D0006C9A95 /* WifiController.swift */; };
 		ED36B8E127CD5ABD00B2B9B2 /* idevicelocation in Resources */ = {isa = PBXBuildFile; fileRef = ED36B8E027CD5ABD00B2B9B2 /* idevicelocation */; };
 		ED44823627B2590400C416C9 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = ED44823527B2590400C416C9 /* Info.plist */; };
 		ED5EB07E280DDDBD004D3559 /* iOSPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EB07D280DDDBD004D3559 /* iOSPanel.swift */; };
@@ -24,10 +31,16 @@
 		ED8824F627C38044007499B7 /* LocationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED8824F527C38044007499B7 /* LocationController.swift */; };
 		EDB5434928154ACE002182FF /* Track.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB5434828154ACE002182FF /* Track.swift */; };
 		EDEF747D283621EB00319E02 /* Runner.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDEF747C283621EB00319E02 /* Runner.swift */; };
-		EDF88CA6280EDAE300D8C794 /* helper-app.apk in Resources */ = {isa = PBXBuildFile; fileRef = EDF88CA5280EDADD00D8C794 /* helper-app.apk */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		D20C83662AAB86A700CF8C1F /* LocationSocketServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSocketServer.swift; sourceTree = "<group>"; };
+		D20C83682AABD1D500CF8C1F /* SocketPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketPanel.swift; sourceTree = "<group>"; };
+		D20C836A2AABD26A00CF8C1F /* SocketPanelSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketPanelSettings.swift; sourceTree = "<group>"; };
+		D289A85B2ACB16EB002A41B6 /* SimVirtualLocationWithSocket.apk */ = {isa = PBXFileReference; lastKnownFileType = file; path = SimVirtualLocationWithSocket.apk; sourceTree = "<group>"; };
+		D2ED47032AB28A58006C9A95 /* adb-join-wifi.apk */ = {isa = PBXFileReference; lastKnownFileType = file; path = "adb-join-wifi.apk"; sourceTree = "<group>"; };
+		D2ED47052AB3108C006C9A95 /* WifiPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WifiPanel.swift; path = Socket/WifiPanel.swift; sourceTree = "<group>"; };
+		D2ED470B2AB311D0006C9A95 /* WifiController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WifiController.swift; sourceTree = "<group>"; };
 		ED36B8E027CD5ABD00B2B9B2 /* idevicelocation */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = idevicelocation; sourceTree = "<group>"; };
 		ED44823527B2590400C416C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		ED5EB07D280DDDBD004D3559 /* iOSPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSPanel.swift; sourceTree = "<group>"; };
@@ -47,7 +60,6 @@
 		EDB5434828154ACE002182FF /* Track.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Track.swift; sourceTree = "<group>"; };
 		EDC18D1827C3AC9E00584479 /* SimVirtualLocation.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SimVirtualLocation.entitlements; sourceTree = "<group>"; };
 		EDEF747C283621EB00319E02 /* Runner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner.swift; sourceTree = "<group>"; };
-		EDF88CA5280EDADD00D8C794 /* helper-app.apk */ = {isa = PBXFileReference; lastKnownFileType = file; path = "helper-app.apk"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,9 +73,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		D20C836D2AABD2C600CF8C1F /* Socket */ = {
+			isa = PBXGroup;
+			children = (
+				D20C836A2AABD26A00CF8C1F /* SocketPanelSettings.swift */,
+				D20C83682AABD1D500CF8C1F /* SocketPanel.swift */,
+				D2ED47052AB3108C006C9A95 /* WifiPanel.swift */,
+			);
+			name = Socket;
+			sourceTree = "<group>";
+		};
 		ED5EB085280DE339004D3559 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				D20C836D2AABD2C600CF8C1F /* Socket */,
 				ED5EB087280DE359004D3559 /* Android */,
 				ED5EB086280DE350004D3559 /* iOS */,
 				ED82D38D27C1FC2C0093656B /* Main.swift */,
@@ -98,6 +121,8 @@
 				ED8824F527C38044007499B7 /* LocationController.swift */,
 				ED76C13927C160A200E74500 /* NotificationSender.swift */,
 				EDEF747C283621EB00319E02 /* Runner.swift */,
+				D20C83662AAB86A700CF8C1F /* LocationSocketServer.swift */,
+				D2ED470B2AB311D0006C9A95 /* WifiController.swift */,
 			);
 			path = Logic;
 			sourceTree = "<group>";
@@ -138,7 +163,8 @@
 				ED87CA1F27B1B42F001315D7 /* Assets.xcassets */,
 				ED44823527B2590400C416C9 /* Info.plist */,
 				ED36B8E027CD5ABD00B2B9B2 /* idevicelocation */,
-				EDF88CA5280EDADD00D8C794 /* helper-app.apk */,
+				D289A85B2ACB16EB002A41B6 /* SimVirtualLocationWithSocket.apk */,
+				D2ED47032AB28A58006C9A95 /* adb-join-wifi.apk */,
 			);
 			path = SimVirtualLocation;
 			sourceTree = "<group>";
@@ -201,10 +227,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D289A85C2ACB16EB002A41B6 /* SimVirtualLocationWithSocket.apk in Resources */,
 				ED36B8E127CD5ABD00B2B9B2 /* idevicelocation in Resources */,
 				ED44823627B2590400C416C9 /* Info.plist in Resources */,
-				EDF88CA6280EDAE300D8C794 /* helper-app.apk in Resources */,
 				ED87CA2027B1B42F001315D7 /* Assets.xcassets in Resources */,
+				D2ED47042AB28A58006C9A95 /* adb-join-wifi.apk in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -215,10 +242,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D20C83672AAB86A700CF8C1F /* LocationSocketServer.swift in Sources */,
 				ED8824F627C38044007499B7 /* LocationController.swift in Sources */,
+				D20C836B2AABD26A00CF8C1F /* SocketPanelSettings.swift in Sources */,
+				D2ED47062AB3108C006C9A95 /* WifiPanel.swift in Sources */,
 				ED82D39227C1FC8C0093656B /* MapView.swift in Sources */,
 				ED82D38E27C1FC2C0093656B /* Main.swift in Sources */,
 				ED76C13A27C160A200E74500 /* NotificationSender.swift in Sources */,
+				D20C83692AABD1D500CF8C1F /* SocketPanel.swift in Sources */,
+				D2ED470C2AB311D0006C9A95 /* WifiController.swift in Sources */,
 				ED5EB08B280DE44F004D3559 /* AndroidDeviceSettings.swift in Sources */,
 				ED5EB080280DE195004D3559 /* AndroidPanel.swift in Sources */,
 				ED5EB07E280DDDBD004D3559 /* iOSPanel.swift in Sources */,
@@ -360,7 +392,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 46869Y4379;
+				DEVELOPMENT_TEAM = S2H248TSP5;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
@@ -389,7 +421,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 46869Y4379;
+				DEVELOPMENT_TEAM = S2H248TSP5;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";

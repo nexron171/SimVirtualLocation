@@ -17,6 +17,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     enum DeviceMode: Int, Identifiable {
         case simulator
         case device
+        case socket
 
         var id: Int { self.rawValue }
     }
@@ -52,8 +53,16 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     @Published var adbPath: String = ""
     @Published var adbDeviceId: String = ""
     @Published var isEmulator: Bool = false
+    @Published var socketPanelType = 0
 
     @Published var timeScale: Double = 0.5
+    lazy var locationSocketServer: LocationSocketServer = {
+            return LocationSocketServer(locationController: self)
+        }()
+    
+    lazy var wifiController: WifiController = {
+        return WifiController(locationController: self)
+    }()
 
     // MARK: - Private
 
@@ -112,7 +121,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             showAlert("Current location is unavailable")
             return
         }
-        run(location: location)
+        run(location: location, speed: 0)
     }
 
     func setSelectedLocation(toBPoint: Bool = false) {
@@ -121,14 +130,49 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
                 showAlert("Point B is not selected")
                 return
             }
-            run(location: annotations[1].coordinate)
+            run(location: annotations[1].coordinate, speed: 0)
         } else {
             guard let annotation = annotations.first else {
                 showAlert("Point A is not selected")
                 return
             }
-            run(location: annotation.coordinate)
+            run(location: annotation.coordinate, speed: 0)
         }
+    }
+    
+    func getIPAddress() -> String? {
+        var address: String?
+
+        // Get a list of all interfaces
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0 else { return nil }
+        guard let firstAddr = ifaddr else { return nil }
+
+        // Iterate through all interfaces
+        for ifPtr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
+            let interface = ifPtr.pointee
+
+            // Check the state of the interface
+            let isUp = (interface.ifa_flags & UInt32(IFF_UP)) == UInt32(IFF_UP)
+            let isRunning = (interface.ifa_flags & UInt32(IFF_RUNNING)) == UInt32(IFF_RUNNING)
+            let isLoopback = (interface.ifa_flags & UInt32(IFF_LOOPBACK)) == UInt32(IFF_LOOPBACK)
+            let isIPv4 = interface.ifa_addr.pointee.sa_family == UInt8(AF_INET)
+
+            // Ensure the interface is running and it's an IPv4 address (AF_INET)
+            if isUp && isRunning && !isLoopback && isIPv4 {
+                // Convert the sockaddr_in to a human-readable format
+                var addr = interface.ifa_addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee.sin_addr }
+                var buf = [CChar](repeating: 0, count: 16)
+                inet_ntop(AF_INET, &addr, &buf, socklen_t(buf.count))
+                address = String(cString: buf)
+                break
+            }
+        }
+
+        // Free memory
+        freeifaddrs(ifaddr)
+
+        return address
     }
 
     func makeRoute() {
@@ -217,7 +261,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
                 timer.invalidate()
                 return
             }
-            self.run(location: location)
+            self.run(location: location, speed: 0)
         }
         
         self.timer = timer
@@ -411,14 +455,14 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         switch trackMove {
             case .moveTo(let to, let from, let speed):
                 self.lastTrackLocation = to
-                self.run(location: to)
+            self.run(location: to, speed: speed)
                 self.currentSimulationAnnotation.coordinate = to
                 print("move to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
 
             case .finishTo(let to, let from, let speed):
                 self.lastTrackLocation = nil
                 self.currentTrackIndex += 1
-                self.run(location: to)
+                self.run(location: to, speed: speed)
                 self.currentSimulationAnnotation.coordinate = to
                 print("finish to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
         }
@@ -427,19 +471,34 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
     }
     
-    private func executeAdbCommand(args: [String], successMessage: String? = nil) {
+    func executeAdbCommand(args: [String], successMessage: String? = nil) {
         if adbDeviceId.isEmpty {
             showAlert("Please specify device id")
             return
         }
         
+        var path = adbPath
         if adbPath.isEmpty {
-            showAlert("Please specify path to adb")
+            if let adbPath = runShellCommand("which adb")?.trimmingCharacters(in: .whitespacesAndNewlines) {
+                let adbCommand = "\(adbPath) devices"
+                if let result = runShellCommand(adbCommand) {
+                    print("Result: \(result)")
+                    path = result
+                } else {
+                    print("Failed to run command")
+                }
+            } else {
+                print("adb not found")
+            }
+            if path.isEmpty {
+                showAlert("Please specify path to adb")
+            }
             return
         }
         
         let task = Process()
-        task.executableURL = URL(string: "file://\(adbPath)")!
+        task.executableURL = URL(string: "file://\(path)")!
+        print(args)
         task.arguments = args
 
         let errorPipe = Pipe()
@@ -463,6 +522,25 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             showAlert(successMessage)
         }
     }
+    
+    func runShellCommand(_ command: String) -> String? {
+        let process = Process()
+        let pipe = Pipe()
+
+        process.standardOutput = pipe
+        process.standardError = pipe
+        process.arguments = ["-c", command]
+        process.launchPath = "/bin/bash"
+
+        process.launch()
+        process.waitUntilExit()
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8)
+
+        return output
+    }
+
 
     private func printTimes() {
         tracksTimes.forEach { track, time in
@@ -511,13 +589,22 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         self.mapView.mkMapView.addAnnotation(annotation)
     }
 
-    private func run(location: CLLocationCoordinate2D) {
+    private func run(location: CLLocationCoordinate2D, speed: Double) {
         defaults.set(deviceType, forKey: "device_type")
         defaults.set(adbPath, forKey: "adb_path")
         defaults.set(adbDeviceId, forKey: "adb_device_id")
         defaults.set(isEmulator, forKey: "is_emulator")
         
-        if deviceType != 0 {
+        if deviceType == 2 {
+            runner.runOnSocket(
+                location: location,
+                speed: speed,
+                locationSocketServer: self.locationSocketServer
+            )
+            return;
+        }
+        
+        if deviceType == 1 {
             do {
                 try runOnAndroid(location: location)
             } catch {
@@ -580,7 +667,8 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         }
     }
 
-    private func showAlert(_ text: String) {
+
+    func showAlert(_ text: String) {
         DispatchQueue.main.async {
             self.alertText = text
             self.showingAlert = true
