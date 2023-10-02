@@ -10,7 +10,7 @@ Posibilities:
 
 You can dowload compiled and signed app [here](https://github.com/nexron171/SimVirtualLocation/releases).
 
-![App Screen Shot](https://raw.githubusercontent.com/nexron171/SimVirtualLocation/master/assets/screenshot.png)
+![App Screen Shot](<simvirtuallocation.png>)
 
 ## FAQ
 ---
