@@ -12,6 +12,15 @@ class Runner {
     
     private let executionQueue = DispatchQueue(label: "runner_queue", qos: .background)
     private var idevicelocationPath: URL?
+
+    private var currentTask: Process?
+    private var isStopped: Bool = false
+
+    func stop() {
+        currentTask?.terminate()
+        currentTask = nil
+        isStopped = true
+    }
     
     func runOnSimulator(
         location: CLLocationCoordinate2D,
@@ -52,6 +61,65 @@ class Runner {
                 \(error)
                 
                 Try to install: `brew install libimobiledevice`
+                """)
+            }
+        }
+    }
+
+    func runOnNewIos(
+        location: CLLocationCoordinate2D,
+        rsdID: String,
+        rsdPort: String,
+        showAlert: @escaping (String) -> Void
+    ) {
+        guard !rsdID.isEmpty, !rsdPort.isEmpty else {
+            showAlert("Please specify RSD ID and Port")
+            return
+        }
+
+        self.isStopped = false
+        self.currentTask?.terminate()
+
+        executionQueue.async {
+            guard !self.isStopped else {
+                return
+            }
+
+            let task = self.taskForNewIOS(
+                args: [
+                    "developer",
+                    "dvt",
+                    "simulate-location",
+                    "set",
+                    "--rsd",
+                    rsdID,
+                    rsdPort,
+                    "\(location.latitude)",
+                    "\(location.longitude)"
+                ]
+            )
+            self.currentTask = task
+
+            let errorPipe = Pipe()
+
+            task.standardError = errorPipe
+
+            do {
+                try task.run()
+            } catch {
+                showAlert(error.localizedDescription)
+                return
+            }
+
+            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+            let error = String(decoding: errorData, as: UTF8.self)
+
+            if !error.isEmpty {
+                showAlert("""
+                \(error)
+
+                Try to install: pymobiledevice3
+                `python3 -m pip install -U pymobiledevice3`
                 """)
             }
         }
@@ -178,6 +246,16 @@ class Runner {
         task.executableURL = path
         task.arguments = args
         
+        return task
+    }
+
+    private func taskForNewIOS(args: [String]) -> Process {
+        let path: URL = URL(string: "file:///opt/homebrew/bin/pymobiledevice3")!
+
+        let task = Process()
+        task.executableURL = path
+        task.arguments = args
+
         return task
     }
     

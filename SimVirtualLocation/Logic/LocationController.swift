@@ -41,6 +41,9 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     }
     @Published var deviceMode: DeviceMode = .simulator
 
+    /// For iOS 17+
+    @Published var isNewEra: Bool = false
+
     @Published var bootedSimulators: [Simulator] = []
     @Published var selectedSimulator: String = ""
 
@@ -52,6 +55,9 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     @Published var adbPath: String = ""
     @Published var adbDeviceId: String = ""
     @Published var isEmulator: Bool = false
+
+    @Published var rsdID: String = ""
+    @Published var rsdPort: String = ""
 
     @Published var timeScale: Double = 0.5
 
@@ -339,6 +345,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
     func stopSimulation() {
         isSimulating = false
+        runner.stop()
     }
 
     func reset() {
@@ -526,11 +533,20 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             return
         }
         if deviceMode == .device {
-            runner.runOnIos(
-                location: location,
-                selectedDevice: selectedDevice,
-                showAlert: showAlert
-            )
+            if isNewEra {
+                runner.runOnNewIos(
+                    location: location,
+                    rsdID: rsdID,
+                    rsdPort: rsdPort,
+                    showAlert: showAlert
+                )
+            } else {
+                runner.runOnIos(
+                    location: location,
+                    selectedDevice: selectedDevice,
+                    showAlert: showAlert
+                )
+            }
         } else {
             if bootedSimulators.isEmpty {
                 isSimulating = false

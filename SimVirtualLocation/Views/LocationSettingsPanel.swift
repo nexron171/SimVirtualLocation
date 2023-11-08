@@ -85,11 +85,29 @@ struct LocationSettingsPanel: View {
             }
             
             GroupBox {
-                Picker("Location update frequency", selection: $locationController.timeScale) {
-                    Text("250ms").tag(0.25)
-                    Text("500ms").tag(0.5)
-                    Text("1s").tag(1.0)
-                }.pickerStyle(.segmented).disabled(locationController.isSimulating)
+                if locationController.isNewEra {
+                    Picker("Location update frequency", selection: $locationController.timeScale) {
+                        Text("5s").tag(5.0)
+                        Text("10s").tag(10.0)
+                        Text("15s").tag(15.0)
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(locationController.isSimulating)
+                    .onAppear {
+                        locationController.timeScale = 5.0
+                    }
+                } else {
+                    Picker("Location update frequency", selection: $locationController.timeScale) {
+                        Text("250ms").tag(0.25)
+                        Text("500ms").tag(0.5)
+                        Text("1s").tag(1.0)
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(locationController.isSimulating)
+                    .onAppear {
+                        locationController.timeScale = 0.5
+                    }
+                }
             }
 
             Spacer()

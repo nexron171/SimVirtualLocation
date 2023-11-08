@@ -23,21 +23,35 @@ struct iOSDeviceSettings: View {
                         Text(simulator.name)
                     }
                 }
+
+                Button(action: {
+                    locationController.refreshDevices()
+                }, label: {
+                    Text("Refresh").frame(maxWidth: .infinity)
+                })
             }
 
             if locationController.deviceMode == .device {
-                Picker("Device:", selection: $locationController.selectedDevice) {
-                    ForEach(locationController.connectedDevices, id: \.id) { device in
-                        Text(device.name)
+                Toggle(isOn: $locationController.isNewEra) {
+                    Text("iOS 17+")
+                }
+                if locationController.isNewEra {
+                    TextField("RSD Address", text: $locationController.rsdID)
+                    TextField("RSD Port", text: $locationController.rsdPort)
+                } else {
+                    Picker("Device:", selection: $locationController.selectedDevice) {
+                        ForEach(locationController.connectedDevices, id: \.id) { device in
+                            Text(device.name)
+                        }
                     }
+
+                    Button(action: {
+                        locationController.refreshDevices()
+                    }, label: {
+                        Text("Refresh").frame(maxWidth: .infinity)
+                    })
                 }
             }
-
-            Button(action: {
-                locationController.refreshDevices()
-            }, label: {
-                Text("Refresh").frame(maxWidth: .infinity)
-            })
         }
     }
 }
