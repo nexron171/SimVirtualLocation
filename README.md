@@ -26,6 +26,12 @@ brew install python3 && python3 -m pip install -U pymobiledevice3
 
 For iOS Device - select device from dropdown and then click on Mound Developer Image. If you see an error that there is no appropriate image - download one from https://github.com/mspvirajpatel/Xcode_Developer_Disk_Images/releases if your iOS for example 16.5.1 and there is only 16.5 - it's ok, just copy and rename it to 16.5.1 and put it inside Xcode at `.../Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/`
 
+For iOS 17+ select ckeckbox iOS 17+ and provide RSD Address and RSD Port from command:
+```shell
+sudo python3 -m pymobiledevice3 remote start-quic-tunnel
+```
+It needs sudo, because it will instantiate low level connection between Mac and iPhone. Keep this command running while mocking location for iOS 17+.
+
 ### If iOS device is unlisted
 
 Try to refresh list and if it does not help - go to Settings / Developer on iPhone and click Clear trusted computers. Replug cable and press refresh. If it still not in list - go to Xcode / Devices and simulators and check your device, there are should not be any yellow messages. If it has - make all that it requires.
