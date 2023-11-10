@@ -16,6 +16,7 @@ class Runner {
     private let executionQueue = DispatchQueue(label: "executionQueue", qos: .background, attributes: .concurrent)
     private var idevicelocationPath: URL?
 
+    private var currentTask: Process?
     private var tasks: [Process] = []
 
     private var isStopped: Bool = false
@@ -57,13 +58,19 @@ class Runner {
                     "dvt",
                     "simulate-location",
                     "set",
-                    "\(location.latitude)",
-                    "\(location.longitude)"
+                    "\(String(format: "%.5f", location.latitude))",
+                    "\(String(format: "%.5f", location.longitude))"
                 ]
             )
 
+            self.currentTask = task
+
+            let inputPipe = Pipe()
+            let outputPipe = Pipe()
             let errorPipe = Pipe()
 
+            task.standardInput = inputPipe
+            task.standardOutput = outputPipe
             task.standardError = errorPipe
 
             do {
@@ -74,21 +81,19 @@ class Runner {
                     }
                     self.tasks.append(task)
                 }
+
+                task.waitUntilExit()
+
+                if let errorData = try errorPipe.fileHandleForReading.readToEnd() {
+                    let error = String(decoding: errorData, as: UTF8.self)
+
+                    if !error.isEmpty {
+                        showAlert(error)
+                    }
+                }
             } catch {
                 showAlert(error.localizedDescription)
                 return
-            }
-
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let error = String(decoding: errorData, as: UTF8.self)
-
-            if !error.isEmpty {
-                showAlert("""
-                \(error)
-
-                Try to install: pymobiledevice3
-                `python3 -m pip install -U pymobiledevice3`
-                """)
             }
         }
     }
@@ -125,7 +130,14 @@ class Runner {
                 ]
             )
 
+            self.currentTask = task
+
+            let inputPipe = Pipe()
+            let outputPipe = Pipe()
             let errorPipe = Pipe()
+
+            task.standardInput = inputPipe
+            task.standardOutput = outputPipe
             task.standardError = errorPipe
 
             do {
@@ -136,21 +148,19 @@ class Runner {
                     }
                     self.tasks.append(task)
                 }
+
+                task.waitUntilExit()
+
+                if let errorData = try errorPipe.fileHandleForReading.readToEnd() {
+                    let error = String(decoding: errorData, as: UTF8.self)
+
+                    if !error.isEmpty {
+                        showAlert(error)
+                    }
+                }
             } catch {
                 showAlert(error.localizedDescription)
                 return
-            }
-
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let error = String(decoding: errorData, as: UTF8.self)
-
-            if !error.isEmpty {
-                showAlert("""
-                \(error)
-
-                Try to install: pymobiledevice3
-                `python3 -m pip install -U pymobiledevice3`
-                """)
             }
         }
     }
