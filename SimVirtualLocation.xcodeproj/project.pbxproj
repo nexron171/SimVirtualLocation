@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		ED36B8E127CD5ABD00B2B9B2 /* idevicelocation in Resources */ = {isa = PBXBuildFile; fileRef = ED36B8E027CD5ABD00B2B9B2 /* idevicelocation */; };
 		ED44823627B2590400C416C9 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = ED44823527B2590400C416C9 /* Info.plist */; };
 		ED5EB07E280DDDBD004D3559 /* iOSPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EB07D280DDDBD004D3559 /* iOSPanel.swift */; };
 		ED5EB080280DE195004D3559 /* AndroidPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EB07F280DE195004D3559 /* AndroidPanel.swift */; };
@@ -25,10 +24,10 @@
 		EDB5434928154ACE002182FF /* Track.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB5434828154ACE002182FF /* Track.swift */; };
 		EDEF747D283621EB00319E02 /* Runner.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDEF747C283621EB00319E02 /* Runner.swift */; };
 		EDF88CA6280EDAE300D8C794 /* helper-app.apk in Resources */ = {isa = PBXBuildFile; fileRef = EDF88CA5280EDADD00D8C794 /* helper-app.apk */; };
+		EDF95A932AFE39D7007A2D73 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = EDF95A922AFE39D7007A2D73 /* README.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		ED36B8E027CD5ABD00B2B9B2 /* idevicelocation */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = idevicelocation; sourceTree = "<group>"; };
 		ED44823527B2590400C416C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		ED5EB07D280DDDBD004D3559 /* iOSPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSPanel.swift; sourceTree = "<group>"; };
 		ED5EB07F280DE195004D3559 /* AndroidPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidPanel.swift; sourceTree = "<group>"; };
@@ -48,6 +47,7 @@
 		EDC18D1827C3AC9E00584479 /* SimVirtualLocation.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SimVirtualLocation.entitlements; sourceTree = "<group>"; };
 		EDEF747C283621EB00319E02 /* Runner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner.swift; sourceTree = "<group>"; };
 		EDF88CA5280EDADD00D8C794 /* helper-app.apk */ = {isa = PBXFileReference; lastKnownFileType = file; path = "helper-app.apk"; sourceTree = "<group>"; };
+		EDF95A922AFE39D7007A2D73 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,8 +137,8 @@
 				EDC18D1827C3AC9E00584479 /* SimVirtualLocation.entitlements */,
 				ED87CA1F27B1B42F001315D7 /* Assets.xcassets */,
 				ED44823527B2590400C416C9 /* Info.plist */,
-				ED36B8E027CD5ABD00B2B9B2 /* idevicelocation */,
 				EDF88CA5280EDADD00D8C794 /* helper-app.apk */,
+				EDF95A922AFE39D7007A2D73 /* README.md */,
 			);
 			path = SimVirtualLocation;
 			sourceTree = "<group>";
@@ -201,9 +201,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				ED36B8E127CD5ABD00B2B9B2 /* idevicelocation in Resources */,
 				ED44823627B2590400C416C9 /* Info.plist in Resources */,
 				EDF88CA6280EDAE300D8C794 /* helper-app.apk in Resources */,
+				EDF95A932AFE39D7007A2D73 /* README.md in Resources */,
 				ED87CA2027B1B42F001315D7 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -40,9 +40,12 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         didSet { handlePointsModeChange() }
     }
     @Published var deviceMode: DeviceMode = .simulator
+    @Published var xcodePath: String = "/Applications/Xcode.app" {
+        didSet { defaults.set(xcodePath, forKey: Constants.defaultsXcodePathKey) }
+    }
 
     /// For iOS 17+
-    @Published var isNewEra: Bool = false
+    @Published var useRSD: Bool = false
 
     @Published var bootedSimulators: [Simulator] = []
     @Published var selectedSimulator: String = ""
@@ -56,10 +59,12 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     @Published var adbDeviceId: String = ""
     @Published var isEmulator: Bool = false
 
-    @Published var rsdID: String = ""
-    @Published var rsdPort: String = ""
+    @Published var RSDAddress: String = ""
+    @Published var RSDPort: String = ""
 
-    @Published var timeScale: Double = 0.5
+    @Published var timeScale: Double = 1.5 {
+        didSet { runner.timeDelay = timeScale }
+    }
 
     // MARK: - Private
 
@@ -68,6 +73,9 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     private let currentSimulationAnnotation = MKPointAnnotation()
     private let locationManager = CLLocationManager()
     private let defaults: UserDefaults = UserDefaults.standard
+    private let iOSDeveloperImagePath = "/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/"
+    private let iOSDeveloperImageDmg = "/DeveloperDiskImage.dmg"
+    private let iSODeveloperImageSignature = "/DeveloperDiskImage.dmg.signature"
 
     private var isMapCentered = false
     private var annotations: [MKAnnotation] = []
@@ -101,6 +109,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         adbPath = defaults.string(forKey: "adb_path") ?? ""
         adbDeviceId = defaults.string(forKey: "adb_device_id") ?? ""
         isEmulator = defaults.bool(forKey: "is_emulator")
+        xcodePath = defaults.string(forKey: Constants.defaultsXcodePathKey) ?? "/Applications/Xcode.app"
     }
 
     // MARK: - Public
@@ -109,8 +118,12 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         bootedSimulators = (try? getBootedSimulators()) ?? []
         selectedSimulator = bootedSimulators.first?.id ?? ""
 
-        connectedDevices = (try? getConnectedDevices()) ?? []
-        selectedDevice = connectedDevices.first?.id ?? ""
+        do {
+            connectedDevices = try getConnectedDevices()
+            selectedDevice = connectedDevices.first?.id ?? ""
+        } catch {
+            showAlert(error.localizedDescription)
+        }
     }
 
     func setCurrentLocation() {
@@ -387,6 +400,95 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         print(error.localizedDescription)
     }
 
+    func mountDeveloperImage() {
+        guard let device = connectedDevices.first(where: { $0.id == selectedDevice }) else {
+            showAlert("No selected device")
+            return
+        }
+
+        let mountTask = runner.taskForIOS(
+            args: [
+                "mounter",
+                "mount-developer",
+                "--udid",
+                device.id,
+                makeDeveloperImageDmgPath(iOSVersion: device.version),
+                makeDeveloperImageSignaturePath(iOSVersion: device.version)
+            ]
+        )
+
+        let pipe = Pipe()
+        mountTask.standardOutput = pipe
+
+        let errorPipe = Pipe()
+        mountTask.standardError = errorPipe
+
+        do {
+            try mountTask.run()
+            mountTask.waitUntilExit()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            pipe.fileHandleForReading.closeFile()
+
+            if
+                let errorData = try? errorPipe.fileHandleForReading.readToEnd(),
+                let errorText = String(data: errorData, encoding: .utf8),
+                !errorText.isEmpty {
+                if errorText.range(of: "{'Error': 'DeviceLocked'}") != nil {
+                    showAlert("Error: Device is locked")
+                } else {
+                    showAlert(errorText)
+                }
+            }
+
+            if let text = String(data: data, encoding: .utf8), !text.isEmpty {
+                showAlert(text)
+            }
+        } catch {
+            showAlert(error.localizedDescription)
+        }
+    }
+
+    func unmountDeveloperImage() {
+        let mountTask = runner.taskForIOS(
+            args: [
+                "mounter",
+                "umount-developer"
+            ]
+        )
+
+        let pipe = Pipe()
+        mountTask.standardOutput = pipe
+
+        let errorPipe = Pipe()
+        mountTask.standardError = errorPipe
+
+        do {
+            try mountTask.run()
+            mountTask.waitUntilExit()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            pipe.fileHandleForReading.closeFile()
+
+            if
+                let errorData = try? errorPipe.fileHandleForReading.readToEnd(),
+                let errorText = String(data: errorData, encoding: .utf8),
+                !errorText.isEmpty {
+                if errorText.range(of: "{'Error': 'DeviceLocked'}") != nil {
+                    showAlert("Error: Device is locked")
+                } else {
+                    showAlert(errorText)
+                }
+            }
+
+            if let text = String(data: data, encoding: .utf8), !text.isEmpty {
+                showAlert(text)
+            }
+        } catch {
+            showAlert(error.localizedDescription)
+        }
+    }
+
     // MARK: - Private
 
     private func invalidateState() {
@@ -533,17 +635,16 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             return
         }
         if deviceMode == .device {
-            if isNewEra {
+            if useRSD {
                 runner.runOnNewIos(
                     location: location,
-                    rsdID: rsdID,
-                    rsdPort: rsdPort,
+                    RSDAddress: RSDAddress,
+                    RSDPort: RSDPort,
                     showAlert: showAlert
                 )
             } else {
                 runner.runOnIos(
                     location: location,
-                    selectedDevice: selectedDevice,
                     showAlert: showAlert
                 )
             }
@@ -603,46 +704,35 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             self.isSimulating = false
         }
     }
+
+    private func makeDeveloperImageDmgPath(iOSVersion: String) -> String {
+        return "\(xcodePath)\(iOSDeveloperImagePath)\(iOSVersion)\(iOSDeveloperImageDmg)"
+    }
+
+    private func makeDeveloperImageSignaturePath(iOSVersion: String) -> String {
+        return "\(xcodePath)\(iOSDeveloperImagePath)\(iOSVersion)\(iSODeveloperImageSignature)"
+    }
 }
 
 private extension LocationController {
 
     private func getConnectedDevices() throws -> [Device] {
-        let task = Process()
-        task.launchPath = "/usr/bin/xcrun"
-        task.arguments = ["xctrace", "list", "devices"]
+        let task = runner.taskForIOS(args: ["usbmux", "list", "--no-color", "-u"])
 
         let pipe = Pipe()
         task.standardOutput = pipe
 
-        task.launch()
+        try task.run()
+        task.waitUntilExit()
 
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        task.waitUntilExit()
         pipe.fileHandleForReading.closeFile()
 
         if task.terminationStatus != 0 {
             throw SimulatorFetchError.simctlFailed
         }
 
-        let output = String(data: data, encoding: .utf8)?
-            .split(separator: "\n")
-            .filter { !$0.contains("Simulator") }
-
-        var connectedDevices: [Device] = []
-        output?.forEach { line in
-            let udid = "\(line)"
-                .split(separator: " ")
-                .last?
-                .replacingOccurrences(of: "(", with: "")
-                .replacingOccurrences(of: ")", with: "")
-            
-            if let udid = udid {
-                connectedDevices.append(Device(id: udid, name: "\(line)"))
-            }
-        }
-
-        return connectedDevices
+        return try JSONDecoder().decode([Device].self, from: data)
     }
 
     private func getBootedSimulators() throws -> [Simulator] {
@@ -709,4 +799,9 @@ extension CLLocation {
         let to = CLLocation(latitude: to.latitude, longitude: to.longitude)
         return from.distance(from: to)
     }
+}
+
+private enum Constants {
+
+    static let defaultsXcodePathKey = "xcode_path"
 }

@@ -9,16 +9,21 @@ import Foundation
 import CoreLocation
 
 class Runner {
-    
-    private let executionQueue = DispatchQueue(label: "runner_queue", qos: .background)
+
+    var timeDelay: TimeInterval = 0.5
+
+    private let runnerQueue = DispatchQueue(label: "runnerQueue", qos: .background)
+    private let executionQueue = DispatchQueue(label: "executionQueue", qos: .background, attributes: .concurrent)
     private var idevicelocationPath: URL?
 
-    private var currentTask: Process?
+    private var tasks: [Process] = []
+
     private var isStopped: Bool = false
 
     func stop() {
-        currentTask?.terminate()
-        currentTask = nil
+        tasks.forEach { $0.terminate() }
+        tasks = []
+
         isStopped = true
     }
     
@@ -37,30 +42,52 @@ class Runner {
     
     func runOnIos(
         location: CLLocationCoordinate2D,
-        selectedDevice: String,
         showAlert: @escaping (String) -> Void
     ) {
+        self.isStopped = false
+
         executionQueue.async {
-            let task = self.taskForIOS(args: ["--", "\(location.latitude)", "\(location.longitude)"], selectedDevice: selectedDevice)
+            guard !self.isStopped else {
+                return
+            }
+
+            let task = self.taskForIOS(
+                args: [
+                    "developer",
+                    "dvt",
+                    "simulate-location",
+                    "set",
+                    "\(location.latitude)",
+                    "\(location.longitude)"
+                ]
+            )
+
             let errorPipe = Pipe()
-            
+
             task.standardError = errorPipe
-            
+
             do {
                 try task.run()
+                self.runnerQueue.async {
+                    if self.tasks.count > 100 {
+                        self.stop()
+                    }
+                    self.tasks.append(task)
+                }
             } catch {
                 showAlert(error.localizedDescription)
                 return
             }
-            
+
             let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
             let error = String(decoding: errorData, as: UTF8.self)
-            
+
             if !error.isEmpty {
                 showAlert("""
                 \(error)
-                
-                Try to install: `brew install libimobiledevice`
+
+                Try to install: pymobiledevice3
+                `python3 -m pip install -U pymobiledevice3`
                 """)
             }
         }
@@ -68,44 +95,47 @@ class Runner {
 
     func runOnNewIos(
         location: CLLocationCoordinate2D,
-        rsdID: String,
-        rsdPort: String,
+        RSDAddress: String,
+        RSDPort: String,
         showAlert: @escaping (String) -> Void
     ) {
-        guard !rsdID.isEmpty, !rsdPort.isEmpty else {
+        guard !RSDAddress.isEmpty, !RSDPort.isEmpty else {
             showAlert("Please specify RSD ID and Port")
             return
         }
 
         self.isStopped = false
-        self.currentTask?.terminate()
 
         executionQueue.async {
             guard !self.isStopped else {
                 return
             }
 
-            let task = self.taskForNewIOS(
+            let task = self.taskForIOS(
                 args: [
                     "developer",
                     "dvt",
                     "simulate-location",
                     "set",
                     "--rsd",
-                    rsdID,
-                    rsdPort,
+                    RSDAddress,
+                    RSDPort,
                     "\(location.latitude)",
                     "\(location.longitude)"
                 ]
             )
-            self.currentTask = task
 
             let errorPipe = Pipe()
-
             task.standardError = errorPipe
 
             do {
                 try task.run()
+                self.runnerQueue.async {
+                    if self.tasks.count > 100 {
+                        self.stop()
+                    }
+                    self.tasks.append(task)
+                }
             } catch {
                 showAlert(error.localizedDescription)
                 return
@@ -181,26 +211,7 @@ class Runner {
     }
     
     func resetIos(showAlert: (String) -> Void) {
-        let task = taskForIOS(args: ["-s"], selectedDevice: nil)
-        
-        let errorPipe = Pipe()
-        
-        task.standardError = errorPipe
-        
-        do {
-            try task.run()
-        } catch {
-            showAlert(error.localizedDescription)
-        }
-        
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let error = String(decoding: errorData, as: UTF8.self)
-        
-        if !error.isEmpty {
-            showAlert(error)
-        }
-        
-        task.waitUntilExit()
+        stop()
     }
     
     func resetAndroid(adbDeviceId: String, adbPath: String, showAlert: (String) -> Void) {
@@ -232,25 +243,13 @@ class Runner {
         
         task.waitUntilExit()
     }
-    
-    private func taskForIOS(args: [String], selectedDevice: String?) -> Process {
-        let path: URL = idevicelocationPath ?? Bundle.main.url(forResource: "idevicelocation", withExtension: nil)!
-        idevicelocationPath = path
-        
-        var args = args
-        if let selectedDevice = selectedDevice, selectedDevice != "" {
-            args = ["-u", selectedDevice] + args
-        }
-        
-        let task = Process()
-        task.executableURL = path
-        task.arguments = args
-        
-        return task
-    }
 
-    private func taskForNewIOS(args: [String]) -> Process {
+    func taskForIOS(args: [String]) -> Process {
+        #if arch(arm64)
         let path: URL = URL(string: "file:///opt/homebrew/bin/pymobiledevice3")!
+        #else
+        let path: URL = URL(string: "file:///usr/local/bin/pymobiledevice3")!
+        #endif
 
         let task = Process()
         task.executableURL = path

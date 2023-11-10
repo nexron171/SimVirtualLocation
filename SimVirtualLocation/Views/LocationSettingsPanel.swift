@@ -85,7 +85,7 @@ struct LocationSettingsPanel: View {
             }
             
             GroupBox {
-                if locationController.isNewEra {
+                if locationController.useRSD {
                     Picker("Location update frequency", selection: $locationController.timeScale) {
                         Text("5s").tag(5.0)
                         Text("10s").tag(10.0)
@@ -98,15 +98,12 @@ struct LocationSettingsPanel: View {
                     }
                 } else {
                     Picker("Location update frequency", selection: $locationController.timeScale) {
-                        Text("250ms").tag(0.25)
-                        Text("500ms").tag(0.5)
                         Text("1s").tag(1.0)
+                        Text("1.5s").tag(1.5)
+                        Text("2s").tag(2.0)
                     }
                     .pickerStyle(.segmented)
                     .disabled(locationController.isSimulating)
-                    .onAppear {
-                        locationController.timeScale = 0.5
-                    }
                 }
             }
 

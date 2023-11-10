@@ -7,9 +7,15 @@
 
 import Foundation
 
-struct Device: Hashable, Identifiable {
+struct Device: Hashable, Identifiable, Decodable {
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "Identifier"
+        case name = "DeviceName"
+        case version = "ProductVersion"
+    }
+
     let id: String
     let name: String
-
-    static func empty() -> Device { Device(id: "", name: "To all devices") }
+    let version: String
 }
