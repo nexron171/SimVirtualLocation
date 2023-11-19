@@ -78,6 +78,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     private let iSODeveloperImageSignature = "/DeveloperDiskImage.dmg.signature"
 
     private var isMapCentered = false
+
     private var annotations: [MKAnnotation] = []
     private var route: MKRoute?
     
@@ -87,6 +88,8 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     private var tracksTimes: [Track: Double] = [:]
     
     private var timer: Timer?
+
+    @Published var savedLocations: [Location] = []
 
     // MARK: - Init
 
@@ -110,6 +113,8 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         adbDeviceId = defaults.string(forKey: "adb_device_id") ?? ""
         isEmulator = defaults.bool(forKey: "is_emulator")
         xcodePath = defaults.string(forKey: Constants.defaultsXcodePathKey) ?? "/Applications/Xcode.app"
+
+        loadLocations()
     }
 
     // MARK: - Public
@@ -207,39 +212,6 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             let rect = route.polyline.boundingMapRect
             self.mapView.mkMapView.setRegion(MKCoordinateRegion(rect.insetBy(dx: -1000, dy: -1000)), animated: true)
         }
-    }
-    
-    func simulatePoint(toBPoint: Bool = false) {
-        let location: CLLocationCoordinate2D
-        
-        if toBPoint {
-            guard annotations.count == 2 else {
-                showAlert("Point B is not selected")
-                return
-            }
-            location = annotations[1].coordinate
-        } else {
-            guard let annotation = annotations.first else {
-                showAlert("Point A is not selected")
-                return
-            }
-            location = annotation.coordinate
-        }
-        
-        timer?.invalidate()
-        isSimulating = true
-        
-        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { [location] timer in
-            guard self.isSimulating else {
-                self.isSimulating = false
-                self.timer = nil
-                timer.invalidate()
-                return
-            }
-            self.run(location: location)
-        }
-        
-        self.timer = timer
     }
 
     func simulateRoute() {
@@ -489,7 +461,98 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         }
     }
 
+    func savePointA() {
+        guard let point = annotations.first?.coordinate else {
+            showAlert("Point A is not selected")
+            return
+        }
+
+        savedLocations.append(
+            Location(
+                name: "Point A (\(point.latitude) - \(point.longitude))",
+                latitude: point.latitude,
+                longitude: point.longitude
+            )
+        )
+
+        saveSavedLocations()
+    }
+
+    func savePointB() {
+        guard annotations.count == 2, let point = annotations.last?.coordinate else {
+            showAlert("Point B is not selected")
+            return
+        }
+
+        savedLocations.append(
+            Location(
+                name: "Point B (\(point.latitude) - \(point.longitude))",
+                latitude: point.latitude,
+                longitude: point.longitude
+            )
+        )
+
+        saveSavedLocations()
+    }
+
+    func removeLocation(location: Location) {
+        savedLocations.removeAll { $0.id == location.id }
+
+        saveSavedLocations()
+    }
+
+    func update(_ location: Location, with name: String) {
+        guard let locationIndex = savedLocations.firstIndex(where: { $0.id == location.id }) else {
+            return
+        }
+
+        savedLocations.remove(at: locationIndex)
+        savedLocations.insert(
+            Location(
+                name: name,
+                latitude: location.latitude,
+                longitude: location.longitude
+            ),
+            at: locationIndex
+        )
+
+        saveSavedLocations()
+    }
+
+    func putLocationOnMap(location: Location) {
+        addLocation(coordinate: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude))
+    }
+
+    func showAlert(_ text: String) {
+        DispatchQueue.main.async {
+            self.alertText = text
+            self.showingAlert = true
+            self.isSimulating = false
+        }
+    }
+
+    func importLocations(from data: Data) {
+        let locations = (try? JSONDecoder().decode([Location].self, from: data)) ?? []
+
+        savedLocations.append(contentsOf: locations)
+        saveSavedLocations()
+    }
+
     // MARK: - Private
+
+    private func loadLocations() {
+        guard let data = defaults.data(forKey: Constants.defaultsSavedLocationsPathKey) else {
+            return
+        }
+
+        savedLocations = (try? JSONDecoder().decode([Location].self, from: data)) ?? []
+    }
+
+    private func saveSavedLocations() {
+        if let data = try? JSONEncoder().encode(savedLocations) {
+            defaults.set(data, forKey: Constants.defaultsSavedLocationsPathKey)
+        }
+    }
 
     private func invalidateState() {
         timer?.invalidate()
@@ -601,6 +664,10 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     private func handleSet(point: CGPoint) {
         let clickLocation = mapView.mkMapView.convert(point, toCoordinateFrom: mapView.mkMapView)
 
+        addLocation(coordinate: clickLocation)
+    }
+
+    private func addLocation(coordinate: CLLocationCoordinate2D) {
         if pointsMode == .single {
             mapView.mkMapView.removeAnnotations(annotations)
             annotations = []
@@ -613,7 +680,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         }
 
         let annotation = MKPointAnnotation()
-        annotation.coordinate = clickLocation
+        annotation.coordinate = coordinate
         annotation.title = annotations.count == 0 ? "A" : "B"
 
         annotations.append(annotation)
@@ -694,14 +761,6 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             runner.resetIos(showAlert: showAlert)
         } else {
             runner.resetAndroid(adbDeviceId: adbDeviceId, adbPath: adbPath, showAlert: showAlert)
-        }
-    }
-
-    private func showAlert(_ text: String) {
-        DispatchQueue.main.async {
-            self.alertText = text
-            self.showingAlert = true
-            self.isSimulating = false
         }
     }
 
@@ -803,5 +862,6 @@ extension CLLocation {
 
 private enum Constants {
 
+    static let defaultsSavedLocationsPathKey = "saved_locations"
     static let defaultsXcodePathKey = "xcode_path"
 }

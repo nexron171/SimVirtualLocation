@@ -31,9 +31,9 @@ struct LocationSettingsPanel: View {
                         Text("Set to A").frame(maxWidth: .infinity)
                     })
                     Button(action: {
-                        locationController.simulatePoint()
+                        locationController.savePointA()
                     }, label: {
-                        Text("Simulate to A").frame(maxWidth: .infinity)
+                        Text("Save point A").frame(maxWidth: .infinity)
                     })
                 }
                 
@@ -44,9 +44,9 @@ struct LocationSettingsPanel: View {
                         Text("Set to B").frame(maxWidth: .infinity)
                     })
                     Button(action: {
-                        locationController.simulatePoint(toBPoint: true)
+                        locationController.savePointB()
                     }, label: {
-                        Text("Simulate to B").frame(maxWidth: .infinity)
+                        Text("Save point B").frame(maxWidth: .infinity)
                     })
                 }
 
