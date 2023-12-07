@@ -58,6 +58,7 @@ class Runner {
                     "dvt",
                     "simulate-location",
                     "set",
+                    "--",
                     "\(String(format: "%.5f", location.latitude))",
                     "\(String(format: "%.5f", location.longitude))"
                 ]
