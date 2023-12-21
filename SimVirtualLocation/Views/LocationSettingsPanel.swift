@@ -39,20 +39,16 @@ struct LocationSettingsPanel: View {
                     Text("Set to Coordinate").frame(maxWidth: .infinity)
                 })
                 .alert("Enter your coordinate", isPresented: $isPresentedSetToCoordinate) {
-                    
                     TextField("Latitude", text: $latitude)
-                    
-                    TextField("longitude", text: $longitude)
-                    
-                    TextField("longitude, longitude", text: $latitudeLongitude)
-                  
+                    TextField("Longitude", text: $longitude)
+                    TextField("Latitude, Longitude", text: $latitudeLongitude)
                     Button("Move"){
-                      
-                        locationController.setToCoordinate(latString: latitude,
-                                                           lngString: longitude,
-                                                           latLngString: latitudeLongitude)
+                        if latitude.isEmpty || longitude.isEmpty {
+                            locationController.setToCoordinate(latLngString: latitudeLongitude)
+                        } else {
+                            locationController.setToCoordinate(latString: latitude, lngString: longitude)
+                        }
                     }
-                    
                     Button("Cancel", role: .cancel) { }
                 }
 

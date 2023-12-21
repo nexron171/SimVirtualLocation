@@ -538,45 +538,34 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         saveSavedLocations()
     }
     
-    func setToCoordinate(latString: String = "", lngString: String = "", latLngString: String = "") {
-        
+    func setToCoordinate(latString: String = "", lngString: String = "") {
         var lat: Double = 0
         var lng: Double = 0
         
-        if latString.isEmpty || lngString.isEmpty {
-            
-            let splitValue = latLngString.components(separatedBy: ",")
-         
-            if latLngString.contains(","),
-               splitValue.count == 2 {
-                let latSplitString = splitValue[0].trimmingCharacters(in: .whitespacesAndNewlines)
-                let lngSplitString = splitValue[1].trimmingCharacters(in: .whitespacesAndNewlines)
-                
-             
-                lat = Double(latSplitString) ?? 0
-                lng = Double(lngSplitString) ?? 0
-                
-            } else {
-                showAlert("Current location is unavailable")
-            }
-            
-        } else {
-            lat = Double(latString) ?? 0
-            lng = Double(lngString) ?? 0
-         
-        }
+        lat = Double(latString) ?? 0
+        lng = Double(lngString) ?? 0
         
-        
-        
-        guard lat > 0,
-              lng > 0
-        else {
+        guard lat > 0, lng > 0 else {
             showAlert("Current location is unavailable")
             return
         }
         
         putLocationOnMap(location: .init(name: "", latitude: lat, longitude: lng))
         run(location: .init(latitude: lat, longitude: lng))
+    }
+    
+    func setToCoordinate(latLngString: String = "") {
+        let splitValue = latLngString.components(separatedBy: ",")
+     
+        guard latLngString.contains(","), splitValue.count == 2 else {
+            showAlert("Current location is unavailable")
+            return
+        }
+        
+        let latSplitString = splitValue[0].trimmingCharacters(in: .whitespacesAndNewlines)
+        let lngSplitString = splitValue[1].trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        setToCoordinate(latString: latSplitString, lngString: lngSplitString)
     }
 
     // MARK: - Private
