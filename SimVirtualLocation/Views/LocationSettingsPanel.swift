@@ -6,9 +6,15 @@
 //
 
 import SwiftUI
+import Foundation
 
 struct LocationSettingsPanel: View {
     @EnvironmentObject var locationController: LocationController
+    
+    @State private var isPresentedSetToCoordinate = false
+    @State private var latitude = ""
+    @State private var longitude = ""
+    @State private var latitudeLongitude = ""
     
     var body: some View {
         VStack {
@@ -23,6 +29,28 @@ struct LocationSettingsPanel: View {
                 }, label: {
                     Text("Set to current location").frame(maxWidth: .infinity)
                 })
+                
+                Button(action: {
+                    latitude = ""
+                    longitude = ""
+                    latitudeLongitude = ""
+                    isPresentedSetToCoordinate = true
+                }, label: {
+                    Text("Set to Coordinate").frame(maxWidth: .infinity)
+                })
+                .alert("Enter your coordinate", isPresented: $isPresentedSetToCoordinate) {
+                    TextField("Latitude", text: $latitude)
+                    TextField("Longitude", text: $longitude)
+                    TextField("Latitude, Longitude", text: $latitudeLongitude)
+                    Button("Move"){
+                        if latitude.isEmpty || longitude.isEmpty {
+                            locationController.setToCoordinate(latLngString: latitudeLongitude)
+                        } else {
+                            locationController.setToCoordinate(latString: latitude, lngString: longitude)
+                        }
+                    }
+                    Button("Cancel", role: .cancel) { }
+                }
 
                 HStack {
                     Button(action: {
