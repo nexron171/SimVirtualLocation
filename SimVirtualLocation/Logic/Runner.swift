@@ -126,6 +126,7 @@ class Runner {
                     "--rsd",
                     RSDAddress,
                     RSDPort,
+                    "--",
                     "\(location.latitude)",
                     "\(location.longitude)"
                 ]
