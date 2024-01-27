@@ -49,20 +49,29 @@ Try to refresh list and if it does not help - go to Settings / Developer on iPho
 
 <!-- readme: collaborators,contributors -start -->
 <table>
-<tr>
-    <td align="center">
-        <a href="https://github.com/nexron171">
-            <img src="https://avatars.githubusercontent.com/u/6318346?v=4" width="100;" alt="nexron171"/>
-            <br />
-            <sub><b>Sergey Shirnin</b></sub>
-        </a>
-    </td>
-    <td align="center">
-        <a href="https://github.com/sk-chanch">
-            <img src="https://avatars.githubusercontent.com/u/22313319?v=4" width="100;" alt="sk-chanch"/>
-            <br />
-            <sub><b>Skipp</b></sub>
-        </a>
-    </td></tr>
+styresdc
+    <tr>
+        <td align="center">
+            <a href="https://github.com/nexron171">
+                <img src="https://avatars.githubusercontent.com/u/6318346?v=4" width="100;" alt="nexron171"/>
+                <br />
+                <sub><b>Sergey Shirnin</b></sub>
+            </a>
+        </td>
+        <td align="center">
+            <a href="https://github.com/sk-chanch">
+                <img src="https://avatars.githubusercontent.com/u/22313319?v=4" width="100;" alt="sk-chanch"/>
+                <br />
+                <sub><b>Skipp</b></sub>
+            </a>
+        </td>
+        <td align="center">
+            <a href="https://github.com/styresdc">
+                <img src="https://avatars.githubusercontent.com/u/10870930?v=4" width="100;" alt="styresdc"/>
+                <br />
+                <sub><b>styresdc</b></sub>
+            </a>
+        </td>
+    </tr>
 </table>
 <!-- readme: collaborators,contributors -end -->
