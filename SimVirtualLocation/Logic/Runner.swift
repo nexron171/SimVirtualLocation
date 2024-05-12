@@ -55,7 +55,6 @@ class Runner {
             let task = self.taskForIOS(
                 args: [
                     "developer",
-                    "dvt",
                     "simulate-location",
                     "set",
                     "--",
