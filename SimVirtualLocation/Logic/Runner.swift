@@ -10,7 +10,11 @@ import CoreLocation
 
 class Runner {
 
+    // MARK: - Internal Properties
+
     var timeDelay: TimeInterval = 0.5
+
+    // MARK: - Private Properties
 
     private let runnerQueue = DispatchQueue(label: "runnerQueue", qos: .background)
     private let executionQueue = DispatchQueue(label: "executionQueue", qos: .background, attributes: .concurrent)
@@ -18,8 +22,11 @@ class Runner {
 
     private var currentTask: Process?
     private var tasks: [Process] = []
+    private let maxTasksCount = 10
 
     private var isStopped: Bool = false
+
+    // MARK: - Internal Methods
 
     func stop() {
         tasks.forEach { $0.terminate() }
@@ -76,7 +83,7 @@ class Runner {
             do {
                 try task.run()
                 self.runnerQueue.async {
-                    if self.tasks.count > 100 {
+                    if self.tasks.count > self.maxTasksCount {
                         self.stop()
                     }
                     self.tasks.append(task)
@@ -144,7 +151,7 @@ class Runner {
             do {
                 try task.run()
                 self.runnerQueue.async {
-                    if self.tasks.count > 100 {
+                    if self.tasks.count > self.maxTasksCount {
                         self.stop()
                     }
                     self.tasks.append(task)
@@ -268,7 +275,9 @@ class Runner {
 
         return task
     }
-    
+
+    // MARK: - Private Methods
+
     private func taskForAndroid(args: [String], adbPath: String) -> Process {
         let path = adbPath
         let task = Process()
