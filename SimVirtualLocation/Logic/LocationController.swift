@@ -66,6 +66,17 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         didSet { runner.timeDelay = timeScale }
     }
 
+    @Published var logs: [LogEntry] = []
+
+    let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .iso8601)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        return formatter
+    }()
+
     // MARK: - Private
 
     private let mapView: MapView
@@ -96,6 +107,10 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     init(mapView: MapView) {
         self.mapView = mapView
         super.init()
+
+        runner.log = { [unowned self] message in
+            self.log(message)
+        }
 
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
@@ -529,6 +544,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             self.showingAlert = true
             self.isSimulating = false
         }
+        log("Alert: \(text)")
     }
 
     func importLocations(from data: Data) {
@@ -770,6 +786,13 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             return
         }
         
+        log("""
+        Run on android 
+        - location: \(location)
+        - adbDeviceId: \(adbDeviceId)
+        - adbPath: \(adbPath)
+        - isEmulator: \(isEmulator)
+        """)
         runner.runOnAndroid(
             location: location,
             adbDeviceId: adbDeviceId,
@@ -801,12 +824,18 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     private func makeDeveloperImageSignaturePath(iOSVersion: String) -> String {
         return "\(xcodePath)\(iOSDeveloperImagePath)\(iOSVersion)\(iSODeveloperImageSignature)"
     }
+
+    private func log(_ message: String) {
+        logs.insert(LogEntry(date: Date(), message: message), at: 0)
+    }
 }
 
 private extension LocationController {
 
     private func getConnectedDevices() throws -> [Device] {
         let task = runner.taskForIOS(args: ["usbmux", "list", "--no-color", "-u"])
+
+        log("getConnectedDevices: \(task.executableURL!.absoluteString) \(task.arguments!.joined(separator: " "))")
 
         let pipe = Pipe()
         task.standardOutput = pipe
@@ -821,13 +850,19 @@ private extension LocationController {
             throw SimulatorFetchError.simctlFailed
         }
 
-        return try JSONDecoder().decode([Device].self, from: data)
+        let devices = try JSONDecoder().decode([Device].self, from: data)
+
+        log("connected devices: [\(devices.map { "\($0.id) \($0.name) \($0.version)" }.joined(separator: ", "))]")
+
+        return devices
     }
 
     private func getBootedSimulators() throws -> [Simulator] {
         let task = Process()
         task.launchPath = "/usr/bin/xcrun"
         task.arguments = ["simctl", "list", "-j", "devices"]
+
+        log("getBootedSimulators: \(task.executableURL!.absoluteString) \(task.arguments!.joined(separator: " "))")
 
         let pipe = Pipe()
         task.standardOutput = pipe
@@ -853,6 +888,8 @@ private extension LocationController {
         if bootedSimulators.isEmpty {
             throw SimulatorFetchError.noBootedSimulators
         }
+
+        log("booted simulators: [\(bootedSimulators.map { "\($0.id) \($0.name)" }.joined(separator: ", "))]")
 
         return [Simulator.empty()] + bootedSimulators
     }

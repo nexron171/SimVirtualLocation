@@ -13,6 +13,7 @@ class Runner {
     // MARK: - Internal Properties
 
     var timeDelay: TimeInterval = 0.5
+    var log: ((String) -> Void)?
 
     // MARK: - Private Properties
 
@@ -45,6 +46,8 @@ class Runner {
             .filter { $0.id == selectedSimulator || selectedSimulator == "" }
             .map { $0.id }
 
+        log?("set simulator location \(location.description)")
+
         NotificationSender.postNotification(for: location, to: simulators)
     }
     
@@ -69,6 +72,9 @@ class Runner {
                     "\(String(format: "%.5f", location.longitude))"
                 ]
             )
+
+            self.log?("set iOS location \(location.description)")
+            self.log?("task: \(task.logDescription)")
 
             self.currentTask = task
 
@@ -138,6 +144,9 @@ class Runner {
                 ]
             )
 
+            self.log?("set iOS location \(location.description)")
+            self.log?("task: \(task.logDescription)")
+
             self.currentTask = task
 
             let inputPipe = Pipe()
@@ -206,7 +215,9 @@ class Runner {
                 )
             }
             
-            
+            self.log?("set Android location \(location.description)")
+            self.log?("task: \(task.logDescription)")
+
             let errorPipe = Pipe()
             
             task.standardError = errorPipe
@@ -285,5 +296,26 @@ class Runner {
         task.arguments = args
         
         return task
+    }
+}
+
+extension CLLocationCoordinate2D {
+
+    var description: String { "\(latitude) \(longitude)" }
+}
+
+extension Process {
+
+    var logDescription: String {
+        var description: String = ""
+        if let executableURL {
+            description += "\(executableURL.absoluteString) "
+        }
+
+        if let arguments {
+            description += "\(arguments.joined(separator: " "))"
+        }
+
+        return description
     }
 }
