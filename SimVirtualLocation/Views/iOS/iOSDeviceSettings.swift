@@ -25,7 +25,9 @@ struct iOSDeviceSettings: View {
                 }
 
                 Button(action: {
-                    locationController.refreshDevices()
+                    Task {
+                        await locationController.refreshDevices()
+                    }
                 }, label: {
                     Text("Refresh").frame(maxWidth: .infinity)
                 })
@@ -47,7 +49,9 @@ struct iOSDeviceSettings: View {
                     }
 
                     Button(action: {
-                        locationController.refreshDevices()
+                        Task {
+                            await locationController.refreshDevices()
+                        }
                     }, label: {
                         Text("Refresh").frame(maxWidth: .infinity)
                     })

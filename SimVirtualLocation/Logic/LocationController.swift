@@ -121,29 +121,28 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         mapView.mkMapView.delegate = self
         mapView.viewHolder.clickAction = handleMapClick
 
-        refreshDevices()
-        
-        deviceType = defaults.integer(forKey: "device_type")
-        adbPath = defaults.string(forKey: "adb_path") ?? ""
-        adbDeviceId = defaults.string(forKey: "adb_device_id") ?? ""
-        isEmulator = defaults.bool(forKey: "is_emulator")
-        xcodePath = defaults.string(forKey: Constants.defaultsXcodePathKey) ?? "/Applications/Xcode.app"
+        Task { @MainActor in
+            await refreshDevices()
 
-        loadLocations()
+            deviceType = defaults.integer(forKey: "device_type")
+            adbPath = defaults.string(forKey: "adb_path") ?? ""
+            adbDeviceId = defaults.string(forKey: "adb_device_id") ?? ""
+            isEmulator = defaults.bool(forKey: "is_emulator")
+            xcodePath = defaults.string(forKey: Constants.defaultsXcodePathKey) ?? "/Applications/Xcode.app"
+
+            loadLocations()
+        }
     }
 
     // MARK: - Public
 
-    func refreshDevices() {
+    @MainActor
+    func refreshDevices() async {
         bootedSimulators = (try? getBootedSimulators()) ?? []
         selectedSimulator = bootedSimulators.first?.id ?? ""
 
-        do {
-            connectedDevices = try getConnectedDevices()
-            selectedDevice = connectedDevices.first?.id ?? ""
-        } catch {
-            showAlert(error.localizedDescription)
-        }
+        connectedDevices = (try? await getConnectedDevices()) ?? []
+        selectedDevice = connectedDevices.first?.id ?? ""
     }
 
     func setCurrentLocation() {
@@ -393,86 +392,92 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             return
         }
 
-        let mountTask = runner.taskForIOS(
-            args: [
-                "mounter",
-                "mount-developer",
-                "--udid",
-                device.id,
-                makeDeveloperImageDmgPath(iOSVersion: device.version),
-                makeDeveloperImageSignaturePath(iOSVersion: device.version)
-            ]
-        )
+        Task { @MainActor in
+            let mountTask = try await runner.taskForIOS(
+                args: [
+                    "mounter",
+                    "mount-developer",
+                    "--udid",
+                    device.id,
+                    makeDeveloperImageDmgPath(iOSVersion: device.version),
+                    makeDeveloperImageSignaturePath(iOSVersion: device.version)
+                ],
+                showAlert: showAlert
+            )
 
-        let pipe = Pipe()
-        mountTask.standardOutput = pipe
+            let pipe = Pipe()
+            mountTask.standardOutput = pipe
 
-        let errorPipe = Pipe()
-        mountTask.standardError = errorPipe
+            let errorPipe = Pipe()
+            mountTask.standardError = errorPipe
 
-        do {
-            try mountTask.run()
-            mountTask.waitUntilExit()
+            do {
+                try mountTask.run()
+                mountTask.waitUntilExit()
 
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            pipe.fileHandleForReading.closeFile()
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                pipe.fileHandleForReading.closeFile()
 
-            if
-                let errorData = try? errorPipe.fileHandleForReading.readToEnd(),
-                let errorText = String(data: errorData, encoding: .utf8),
-                !errorText.isEmpty {
-                if errorText.range(of: "{'Error': 'DeviceLocked'}") != nil {
-                    showAlert("Error: Device is locked")
-                } else {
-                    showAlert(errorText)
+                if
+                    let errorData = try? errorPipe.fileHandleForReading.readToEnd(),
+                    let errorText = String(data: errorData, encoding: .utf8),
+                    !errorText.isEmpty {
+                    if errorText.range(of: "{'Error': 'DeviceLocked'}") != nil {
+                        showAlert("Error: Device is locked")
+                    } else {
+                        showAlert(errorText)
+                    }
                 }
-            }
 
-            if let text = String(data: data, encoding: .utf8), !text.isEmpty {
-                showAlert(text)
+                if let text = String(data: data, encoding: .utf8), !text.isEmpty {
+                    showAlert(text)
+                }
+            } catch {
+                showAlert(error.localizedDescription)
             }
-        } catch {
-            showAlert(error.localizedDescription)
         }
     }
 
     func unmountDeveloperImage() {
-        let mountTask = runner.taskForIOS(
-            args: [
-                "mounter",
-                "umount-developer"
-            ]
-        )
+        Task { @MainActor in
+            let mountTask = try await runner.taskForIOS(
+                args: [
+                    "mounter",
+                    "umount-developer"
+                ],
+                showAlert: showAlert
+            )
 
-        let pipe = Pipe()
-        mountTask.standardOutput = pipe
+            let pipe = Pipe()
+            mountTask.standardOutput = pipe
 
-        let errorPipe = Pipe()
-        mountTask.standardError = errorPipe
+            let errorPipe = Pipe()
+            mountTask.standardError = errorPipe
 
-        do {
-            try mountTask.run()
-            mountTask.waitUntilExit()
+            do {
+                try mountTask.run()
+                mountTask.waitUntilExit()
 
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            pipe.fileHandleForReading.closeFile()
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                pipe.fileHandleForReading.closeFile()
 
-            if
-                let errorData = try? errorPipe.fileHandleForReading.readToEnd(),
-                let errorText = String(data: errorData, encoding: .utf8),
-                !errorText.isEmpty {
-                if errorText.range(of: "{'Error': 'DeviceLocked'}") != nil {
-                    showAlert("Error: Device is locked")
-                } else {
-                    showAlert(errorText)
+                if
+                    let errorData = try? errorPipe.fileHandleForReading.readToEnd(),
+                    let errorText = String(data: errorData, encoding: .utf8),
+                    !errorText.isEmpty {
+                    if errorText.range(of: "{'Error': 'DeviceLocked'}") != nil {
+                        showAlert("Error: Device is locked")
+                    } else {
+                        showAlert(errorText)
+                    }
                 }
-            }
 
-            if let text = String(data: data, encoding: .utf8), !text.isEmpty {
-                showAlert(text)
+                if let text = String(data: data, encoding: .utf8), !text.isEmpty {
+                    showAlert(text)
+                }
+            } catch {
+                showAlert(error.localizedDescription)
             }
-        } catch {
-            showAlert(error.localizedDescription)
         }
     }
 
@@ -749,17 +754,22 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         }
         if deviceMode == .device {
             if useRSD {
-                runner.runOnNewIos(
-                    location: location,
-                    RSDAddress: RSDAddress,
-                    RSDPort: RSDPort,
-                    showAlert: showAlert
-                )
+                Task {
+                    try await runner.runOnNewIos(
+                        location: location,
+                        RSDAddress: RSDAddress,
+                        RSDPort: RSDPort,
+                        showAlert: showAlert
+                    )
+                }
+
             } else {
-                runner.runOnIos(
-                    location: location,
-                    showAlert: showAlert
-                )
+                Task {
+                    try await runner.runOnIos(
+                        location: location,
+                        showAlert: showAlert
+                    )
+                }
             }
         } else {
             if bootedSimulators.isEmpty {
@@ -832,8 +842,9 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
 
 private extension LocationController {
 
-    private func getConnectedDevices() throws -> [Device] {
-        let task = runner.taskForIOS(args: ["usbmux", "list", "--no-color", "-u"])
+    @MainActor
+    private func getConnectedDevices() async throws -> [Device] {
+        let task = try await runner.taskForIOS(args: ["usbmux", "list", "--no-color", "-u"], showAlert: showAlert)
 
         log("getConnectedDevices: \(task.executableURL!.absoluteString) \(task.arguments!.joined(separator: " "))")
 

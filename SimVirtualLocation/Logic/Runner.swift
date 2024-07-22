@@ -14,6 +14,7 @@ class Runner {
 
     var timeDelay: TimeInterval = 0.5
     var log: ((String) -> Void)?
+    var pymobiledevicePath: String?
 
     // MARK: - Private Properties
 
@@ -54,60 +55,59 @@ class Runner {
     func runOnIos(
         location: CLLocationCoordinate2D,
         showAlert: @escaping (String) -> Void
-    ) {
+    ) async throws {
         self.isStopped = false
 
-        executionQueue.async {
-            guard !self.isStopped else {
-                return
+        guard !self.isStopped else {
+            return
+        }
+
+        let task = try await self.taskForIOS(
+            args: [
+                "developer",
+                "simulate-location",
+                "set",
+                "--",
+                "\(String(format: "%.5f", location.latitude))",
+                "\(String(format: "%.5f", location.longitude))"
+            ],
+            showAlert: showAlert
+        )
+
+        self.log?("set iOS location \(location.description)")
+        self.log?("task: \(task.logDescription)")
+
+        self.currentTask = task
+
+        let inputPipe = Pipe()
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+
+        task.standardInput = inputPipe
+        task.standardOutput = outputPipe
+        task.standardError = errorPipe
+
+        do {
+            try task.run()
+            self.runnerQueue.async {
+                if self.tasks.count > self.maxTasksCount {
+                    self.stop()
+                }
+                self.tasks.append(task)
             }
 
-            let task = self.taskForIOS(
-                args: [
-                    "developer",
-                    "simulate-location",
-                    "set",
-                    "--",
-                    "\(String(format: "%.5f", location.latitude))",
-                    "\(String(format: "%.5f", location.longitude))"
-                ]
-            )
+            task.waitUntilExit()
 
-            self.log?("set iOS location \(location.description)")
-            self.log?("task: \(task.logDescription)")
+            if let errorData = try errorPipe.fileHandleForReading.readToEnd() {
+                let error = String(decoding: errorData, as: UTF8.self)
 
-            self.currentTask = task
-
-            let inputPipe = Pipe()
-            let outputPipe = Pipe()
-            let errorPipe = Pipe()
-
-            task.standardInput = inputPipe
-            task.standardOutput = outputPipe
-            task.standardError = errorPipe
-
-            do {
-                try task.run()
-                self.runnerQueue.async {
-                    if self.tasks.count > self.maxTasksCount {
-                        self.stop()
-                    }
-                    self.tasks.append(task)
+                if !error.isEmpty {
+                    showAlert(error)
                 }
-
-                task.waitUntilExit()
-
-                if let errorData = try errorPipe.fileHandleForReading.readToEnd() {
-                    let error = String(decoding: errorData, as: UTF8.self)
-
-                    if !error.isEmpty {
-                        showAlert(error)
-                    }
-                }
-            } catch {
-                showAlert(error.localizedDescription)
-                return
             }
+        } catch {
+            showAlert(error.localizedDescription)
+            return
         }
     }
 
@@ -116,7 +116,7 @@ class Runner {
         RSDAddress: String,
         RSDPort: String,
         showAlert: @escaping (String) -> Void
-    ) {
+    ) async throws {
         guard !RSDAddress.isEmpty, !RSDPort.isEmpty else {
             showAlert("Please specify RSD ID and Port")
             return
@@ -124,61 +124,60 @@ class Runner {
 
         self.isStopped = false
 
-        executionQueue.async {
-            guard !self.isStopped else {
-                return
+        guard !self.isStopped else {
+            return
+        }
+
+        let task = try await self.taskForIOS(
+            args: [
+                "developer",
+                "dvt",
+                "simulate-location",
+                "set",
+                "--rsd",
+                RSDAddress,
+                RSDPort,
+                "--",
+                "\(location.latitude)",
+                "\(location.longitude)"
+            ],
+            showAlert: showAlert
+        )
+
+        self.log?("set iOS location \(location.description)")
+        self.log?("task: \(task.logDescription)")
+
+        self.currentTask = task
+
+        let inputPipe = Pipe()
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+
+        task.standardInput = inputPipe
+        task.standardOutput = outputPipe
+        task.standardError = errorPipe
+
+        do {
+            try task.run()
+            self.runnerQueue.async {
+                if self.tasks.count > self.maxTasksCount {
+                    self.stop()
+                }
+                self.tasks.append(task)
             }
 
-            let task = self.taskForIOS(
-                args: [
-                    "developer",
-                    "dvt",
-                    "simulate-location",
-                    "set",
-                    "--rsd",
-                    RSDAddress,
-                    RSDPort,
-                    "--",
-                    "\(location.latitude)",
-                    "\(location.longitude)"
-                ]
-            )
+            task.waitUntilExit()
 
-            self.log?("set iOS location \(location.description)")
-            self.log?("task: \(task.logDescription)")
+            if let errorData = try errorPipe.fileHandleForReading.readToEnd() {
+                let error = String(decoding: errorData, as: UTF8.self)
 
-            self.currentTask = task
-
-            let inputPipe = Pipe()
-            let outputPipe = Pipe()
-            let errorPipe = Pipe()
-
-            task.standardInput = inputPipe
-            task.standardOutput = outputPipe
-            task.standardError = errorPipe
-
-            do {
-                try task.run()
-                self.runnerQueue.async {
-                    if self.tasks.count > self.maxTasksCount {
-                        self.stop()
-                    }
-                    self.tasks.append(task)
+                if !error.isEmpty {
+                    showAlert(error)
                 }
-
-                task.waitUntilExit()
-
-                if let errorData = try errorPipe.fileHandleForReading.readToEnd() {
-                    let error = String(decoding: errorData, as: UTF8.self)
-
-                    if !error.isEmpty {
-                        showAlert(error)
-                    }
-                }
-            } catch {
-                showAlert(error.localizedDescription)
-                return
             }
+        } catch {
+            showAlert(error.localizedDescription)
+            return
         }
     }
     
@@ -273,12 +272,54 @@ class Runner {
         task.waitUntilExit()
     }
 
-    func taskForIOS(args: [String]) -> Process {
-        #if arch(arm64)
-        let path: URL = URL(string: "file:///opt/homebrew/bin/pymobiledevice3")!
-        #else
-        let path: URL = URL(string: "file:///usr/local/bin/pymobiledevice3")!
-        #endif
+    func taskForIOS(args: [String], showAlert: (String) -> Void) async throws -> Process {
+        let whichTask = Process()
+        let whichURL = URL(fileURLWithPath: "/usr/bin/find")
+        let userPath = "/Users/\(NSUserName())/Library"
+        whichTask.executableURL = whichURL
+        whichTask.currentDirectoryURL = URL(fileURLWithPath: userPath)
+        whichTask.arguments = ["Python", "-name", "pymobiledevice3"]
+
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+
+        whichTask.standardOutput = outputPipe
+        whichTask.standardError = errorPipe
+
+        try whichTask.run()
+        whichTask.waitUntilExit()
+
+        if pymobiledevicePath == nil || pymobiledevicePath == "" {
+            let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            try outputPipe.fileHandleForReading.close()
+            let rawValue = String(decoding: data, as: UTF8.self)
+
+            if let path = rawValue.split(separator: "\n").filter({ $0.contains("3.12") }).first {
+                pymobiledevicePath = "\(userPath)/\(String(path))"
+            } else {
+                showAlert("""
+                pymobiledevice3 not found, it should be installed with python 3.12
+                to install pymobiledevice3 properly try install it with following command:
+                `brew install python@3.12 && python3 -m pip install -U pymobiledevice3 --break-system-packages --user`
+                """)
+                pymobiledevicePath = ""
+            }
+
+            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+            let error = String(decoding: errorData, as: UTF8.self)
+            if !error.isEmpty {
+                showAlert(error)
+            }
+            try? errorPipe.fileHandleForReading.close()
+        }
+
+//        #if arch(arm64)
+//        let path: URL = URL(string: "file:///opt/homebrew/bin/pymobiledevice3")!
+//        #else
+//        let path: URL = URL(string: "file:///usr/local/bin/pymobiledevice3")!
+//        #endif
+
+        let path: URL = URL(fileURLWithPath: pymobiledevicePath!)
 
         let task = Process()
         task.executableURL = path
