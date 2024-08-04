@@ -1,4 +1,5 @@
 # SimVirtualLocation
+[Download](https://devnex.ru/download)
 
 Easy to use MacOS 11+ application for easy mocking iOS device and simulator location in realtime. Built on top of  [set-simulator-location](https://github.com/MobileNativeFoundation/set-simulator-location) for iOS Simulators and [pymobiledevice3](https://github.com/doronz88/pymobiledevice3). Android support is realized with [SimVirtualLocation](https://github.com/nexron171/android-mock-location-for-development) android app which is fork from [android-mock-location-for-development](https://github.com/amotzte/android-mock-location-for-development).
 
@@ -8,7 +9,7 @@ Posibilities:
 - set location to point on map
 - make route between two points and simulate moving with desired speed
 
-You can dowload compiled and signed app [here](https://github.com/nexron171/SimVirtualLocation/releases).
+You can dowload compiled and signed app [here](https://devnex.ru/download).
 
 ![App Screen Shot](https://raw.githubusercontent.com/nexron171/SimVirtualLocation/master/assets/screenshot.png)
 
@@ -49,7 +50,6 @@ Try to refresh list and if it does not help - go to Settings / Developer on iPho
 
 <!-- readme: collaborators,contributors -start -->
 <table>
-styresdc
     <tr>
         <td align="center">
             <a href="https://github.com/nexron171">
