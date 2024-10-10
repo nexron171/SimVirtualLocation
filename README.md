@@ -8,7 +8,7 @@ Posibilities:
 - set location to point on map
 - make route between two points and simulate moving with desired speed
 
-You can dowload compiled and signed app [here](https://devnex.ru/download).
+You can dowload compiled and signed app [here](https://github.com/nexron171/SimVirtualLocation/releases).
 
 ![App Screen Shot](https://raw.githubusercontent.com/nexron171/SimVirtualLocation/master/assets/screenshot.png)
 
