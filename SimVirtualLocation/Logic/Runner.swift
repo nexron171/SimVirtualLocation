@@ -293,14 +293,17 @@ class Runner {
             let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
             try outputPipe.fileHandleForReading.close()
             let rawValue = String(decoding: data, as: UTF8.self)
+            let sortedPaths = rawValue.split(separator: "\n").sorted{ a, b in
+                b.localizedCaseInsensitiveCompare(a) == .orderedDescending
+            }
 
-            if let path = rawValue.split(separator: "\n").filter({ $0.contains("3.12") }).first {
+            if let path = sortedPaths.first {
                 pymobiledevicePath = "\(userPath)/\(String(path))"
             } else {
                 showAlert("""
-                pymobiledevice3 not found, it should be installed with python 3.12
+                pymobiledevice3 not found, it should be installed with python
                 to install pymobiledevice3 properly try install it with following command:
-                `brew install python@3.12 && python3 -m pip install -U pymobiledevice3 --break-system-packages --user`
+                `brew install python3 && python3 -m pip install -U pymobiledevice3 --break-system-packages --user`
                 """)
                 pymobiledevicePath = ""
             }
