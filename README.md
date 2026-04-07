@@ -71,6 +71,20 @@ Try to refresh list and if it does not help - go to Settings / Developer on iPho
                 <sub><b>styresdc</b></sub>
             </a>
         </td>
+        <td align="center">
+            <a href="https://github.com/natiginfo">
+                <img src="https://avatars.githubusercontent.com/u/3982965?v=4" width="100;" alt="styresdc"/>
+                <br />
+                <sub><b>natiginfo</b></sub>
+            </a>
+        </td>
+        <td align="center">
+            <a href="https://github.com/resuly">
+                <img src="https://avatars.githubusercontent.com/u/3870826?v=4" width="100;" alt="styresdc"/>
+                <br />
+                <sub><b>resuly</b></sub>
+            </a>
+        </td>
     </tr>
 </table>
 <!-- readme: collaborators,contributors -end -->
