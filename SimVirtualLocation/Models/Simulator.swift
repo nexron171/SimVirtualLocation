@@ -16,7 +16,7 @@ struct Simulator: Codable, Hashable, Identifiable {
     let udid: UUID?
 
     var isBooted: Bool {
-        return self.state == "Booted"
+        state.caseInsensitiveCompare("Booted") == .orderedSame
     }
 
     static func empty() -> Simulator { Simulator(state: "", name: "To all simulators", udid: nil) }

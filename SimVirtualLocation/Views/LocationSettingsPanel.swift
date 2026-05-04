@@ -20,8 +20,8 @@ struct LocationSettingsPanel: View {
         VStack {
             GroupBox {
                 Picker("Points mode", selection: $locationController.pointsMode) {
-                    Text("Single").tag(LocationController.PointsMode.single)
-                    Text("Two").tag(LocationController.PointsMode.two)
+                    Text("Single").tag(PointsMode.single)
+                    Text("Two").tag(PointsMode.two)
                 }.pickerStyle(.segmented)
 
                 Button(action: {
@@ -151,5 +151,6 @@ struct LocationSettingsPanel: View {
 struct LocationSettingsPanel_Previews: PreviewProvider {
     static var previews: some View {
         LocationSettingsPanel()
+            .environmentObject(LocationController(mapView: MapView()))
     }
 }

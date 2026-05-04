@@ -8,43 +8,21 @@
 import Combine
 import CoreLocation
 import MapKit
-import MachO
 
-class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocationManagerDelegate {
-
-    // MARK: - Enums
-
-    enum DeviceMode: Int, Identifiable {
-        case simulator
-        case device
-
-        var id: Int { self.rawValue }
-    }
-
-    enum PointsMode: Int, Identifiable {
-        case single
-        case two
-
-        var id: Int { self.rawValue }
-    }
-
-    // MARK: - Public
-
-    var alertText: String = ""
+class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     // MARK: - Publishers
 
     @Published var isSimulating = false
     @Published var speed: Double = 60.0
     @Published var pointsMode: PointsMode = .single {
-        didSet { handlePointsModeChange() }
+        didSet { mapScene.handlePointsModeChange(to: pointsMode) }
     }
     @Published var deviceMode: DeviceMode = .simulator
     @Published var xcodePath: String = "/Applications/Xcode.app" {
-        didSet { defaults.set(xcodePath, forKey: Constants.defaultsXcodePathKey) }
+        didSet { defaults.set(xcodePath, forKey: AppStorageKey.xcodePath) }
     }
 
-    /// For iOS 17+
     @Published var useRSD: Bool = false
 
     @Published var bootedSimulators: [Simulator] = []
@@ -54,19 +32,22 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     @Published var selectedDevice: String = ""
 
     @Published var showingAlert: Bool = false
-    @Published var deviceType: Int = 0
+    @Published var platform: AppPlatform = .iOS {
+        didSet { defaults.set(platform.rawValue, forKey: AppStorageKey.platform) }
+    }
     @Published var adbPath: String = ""
     @Published var adbDeviceId: String = ""
     @Published var isEmulator: Bool = false
 
-    @Published var RSDAddress: String = ""
-    @Published var RSDPort: String = ""
+    @Published var rsdAddress: String = ""
+    @Published var rsdPort: String = ""
 
     @Published var timeScale: Double = 1.5 {
         didSet { runner.timeDelay = timeScale }
     }
 
     @Published var logs: [LogEntry] = []
+    @Published var showLogs: Bool = false
 
     let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -77,39 +58,50 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         return formatter
     }()
 
+    // MARK: - Internal (previews & tests)
+
+    var alertText: String = ""
+
     // MARK: - Private
 
     private let mapView: MapView
-    private let runner = Runner()
-    private let currentSimulationAnnotation = MKPointAnnotation()
+    private let mapScene: MapSceneCoordinator
+    private let runner: DeviceLocationRunning
+    private let savedLocationsStore: SavedLocationsStore
     private let locationManager = CLLocationManager()
     private let defaults: UserDefaults = UserDefaults.standard
     private let iOSDeveloperImagePath = "/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/"
     private let iOSDeveloperImageDmg = "/DeveloperDiskImage.dmg"
-    private let iSODeveloperImageSignature = "/DeveloperDiskImage.dmg.signature"
+    private let iOSDeveloperImageSignature = "/DeveloperDiskImage.dmg.signature"
 
     private var isMapCentered = false
 
-    private var annotations: [MKAnnotation] = []
-    private var route: MKRoute?
-    
     private var tracks: [Track] = []
     private var currentTrackIndex: Int = 0
     private var lastTrackLocation: CLLocationCoordinate2D?
     private var tracksTimes: [Track: Double] = [:]
-    
+
     private var timer: Timer?
 
     @Published var savedLocations: [Location] = []
 
     // MARK: - Init
 
-    init(mapView: MapView) {
+    init(
+        mapView: MapView,
+        runner: DeviceLocationRunning = Runner(),
+        savedLocationsStore: SavedLocationsStore = SavedLocationsStore()
+    ) {
         self.mapView = mapView
+        self.mapScene = MapSceneCoordinator(mapView: mapView.mkMapView)
+        self.runner = runner
+        self.savedLocationsStore = savedLocationsStore
         super.init()
 
-        runner.log = { [unowned self] message in
-            self.log(message)
+        runner.log = { [weak self] message in
+            DispatchQueue.main.async {
+                self?.log(message)
+            }
         }
 
         locationManager.delegate = self
@@ -118,30 +110,41 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         locationManager.startUpdatingLocation()
         locationManager.requestLocation()
 
-        mapView.mkMapView.delegate = self
-        mapView.viewHolder.clickAction = handleMapClick
+        mapView.viewHolder.clickAction = { [weak self] gesture in
+            guard let self else { return }
+            self.mapScene.handleMapClick(gesture, pointsMode: self.pointsMode)
+        }
 
-        Task { @MainActor in
+        Task {
             await refreshDevices()
 
-            deviceType = defaults.integer(forKey: "device_type")
-            adbPath = defaults.string(forKey: "adb_path") ?? ""
-            adbDeviceId = defaults.string(forKey: "adb_device_id") ?? ""
-            isEmulator = defaults.bool(forKey: "is_emulator")
-            xcodePath = defaults.string(forKey: Constants.defaultsXcodePathKey) ?? "/Applications/Xcode.app"
+            if let p = AppPlatform(rawValue: defaults.integer(forKey: AppStorageKey.platform)) {
+                platform = p
+            }
+            adbPath = defaults.string(forKey: AppStorageKey.adbPath) ?? ""
+            adbDeviceId = defaults.string(forKey: AppStorageKey.adbDeviceId) ?? ""
+            isEmulator = defaults.bool(forKey: AppStorageKey.isEmulator)
+            xcodePath = defaults.string(forKey: AppStorageKey.xcodePath) ?? "/Applications/Xcode.app"
 
-            loadLocations()
+            savedLocations = savedLocationsStore.load()
         }
     }
 
     // MARK: - Public
 
-    @MainActor
     func refreshDevices() async {
-        bootedSimulators = (try? getBootedSimulators()) ?? []
+        bootedSimulators = (try? SimulatorDiscovery.fetchBootedSimulators(log: { [weak self] in self?.log($0) })) ?? []
         selectedSimulator = bootedSimulators.first?.id ?? ""
 
-        connectedDevices = (try? await getConnectedDevices()) ?? []
+        do {
+            connectedDevices = try await IOSUSBDeviceDiscovery.fetchConnectedDevices(
+                runner: runner,
+                showAlert: { [weak self] in self?.showAlert($0) },
+                log: { [weak self] in self?.log($0) }
+            )
+        } catch {
+            connectedDevices = []
+        }
         selectedDevice = connectedDevices.first?.id ?? ""
     }
 
@@ -154,14 +157,15 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     }
 
     func setSelectedLocation(toBPoint: Bool = false) {
+        let endpoints = mapScene.annotationEndpoints()
         if toBPoint {
-            guard annotations.count == 2 else {
+            guard endpoints.count == 2 else {
                 showAlert("Point B is not selected")
                 return
             }
-            run(location: annotations[1].coordinate)
+            run(location: endpoints[1].coordinate)
         } else {
-            guard let annotation = annotations.first else {
+            guard let annotation = endpoints.first else {
                 showAlert("Point A is not selected")
                 return
             }
@@ -170,114 +174,65 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     }
 
     func makeRoute() {
-        guard annotations.count == 2 else {
-            showAlert("Route requires two points")
-            return
-        }
-
-        let startPoint = annotations[0].coordinate
-        let endPoint = annotations[1].coordinate
-
-        let sourcePlacemark = MKPlacemark(coordinate: startPoint, addressDictionary: nil)
-        let destinationPlacemark = MKPlacemark(coordinate: endPoint, addressDictionary: nil)
-
-        let sourceMapItem = MKMapItem(placemark: sourcePlacemark)
-        let destinationMapItem = MKMapItem(placemark: destinationPlacemark)
-
-        let sourceAnnotation = MKPointAnnotation()
-
-        if let location = sourcePlacemark.location {
-            sourceAnnotation.coordinate = location.coordinate
-        }
-
-        let destinationAnnotation = MKPointAnnotation()
-
-        if let location = destinationPlacemark.location {
-            destinationAnnotation.coordinate = location.coordinate
-        }
-
-        self.mapView.mkMapView.removeAnnotations(mapView.mkMapView.annotations)
-        self.mapView.mkMapView.showAnnotations([sourceAnnotation, destinationAnnotation], animated: true )
-
-        let directionRequest = MKDirections.Request()
-        directionRequest.source = sourceMapItem
-        directionRequest.destination = destinationMapItem
-        directionRequest.transportType = .automobile
-
-        let directions = MKDirections(request: directionRequest)
-
-        directions.calculate { (response, error) -> Void in
-            guard let response = response else {
-                if let error = error {
-                    self.showAlert(error.localizedDescription)
-                }
-                return
-            }
-
-            let route = response.routes[0]
-
-            if let currentRoute = self.route {
-                self.mapView.mkMapView.removeOverlay(currentRoute.polyline)
-            }
-            self.route = route
-            self.tracks = []
-            self.mapView.mkMapView.addOverlay((route.polyline), level: MKOverlayLevel.aboveRoads)
-
-            let rect = route.polyline.boundingMapRect
-            self.mapView.mkMapView.setRegion(MKCoordinateRegion(rect.insetBy(dx: -1000, dy: -1000)), animated: true)
-        }
+        mapScene.makeRoute(showAlert: showAlert)
     }
 
     func simulateRoute() {
-        guard let route = route else {
+        guard let route = mapScene.route else {
             showAlert("No route for simulation")
             return
         }
-        
+
+        stopSimulation()
+
+        tracks = []
+        tracksTimes = [:]
+
         let buffer = UnsafeBufferPointer(start: route.polyline.points(), count: route.polyline.pointCount)
-        
+
         for i in 0..<route.polyline.pointCount {
             let trackStartPoint = buffer[i]
             var trackEndPoint: MKMapPoint?
             if i + 1 < route.polyline.pointCount {
-                trackEndPoint = buffer[i+1]
+                trackEndPoint = buffer[i + 1]
             }
-            
+
             if let trackEndPoint = trackEndPoint {
                 tracks.append(Track(startPoint: trackStartPoint, endPoint: trackEndPoint))
             }
         }
-        
-        // prints all tracks distances
-        print(tracks.map { CLLocation.distance(from: $0.startPoint.coordinate, to: $0.endPoint.coordinate) })
-        
+
+        log("Route segment distances: \(tracks.map { CLLocation.distance(from: $0.startPoint.coordinate, to: $0.endPoint.coordinate) })")
+
         invalidateState()
-        
-        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { [unowned self] timer in
-            self.performMovement()
+
+        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { [weak self] _ in
+            self?.performMovement()
         }
-        
         self.timer = timer
     }
 
     func simulateFromAToB() {
-        guard annotations.count == 2 else {
+        let endpoints = mapScene.annotationEndpoints()
+        guard endpoints.count == 2 else {
             showAlert("Route requires two points")
             return
         }
 
-        let startPoint = annotations[0]
-        let endPoint = annotations[1]
-
         stopSimulation()
-        tracks = [Track(startPoint: MKMapPoint(startPoint.coordinate), endPoint: MKMapPoint(endPoint.coordinate))]
+        tracksTimes = [:]
+        tracks = [
+            Track(
+                startPoint: MKMapPoint(endpoints[0].coordinate),
+                endPoint: MKMapPoint(endpoints[1].coordinate)
+            )
+        ]
 
         invalidateState()
 
-        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { [unowned self] timer in
-            self.performMovement()
+        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { [weak self] _ in
+            self?.performMovement()
         }
-
         self.timer = timer
     }
 
@@ -286,7 +241,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             locationManager.requestWhenInUseAuthorization()
             return
         }
-        
+
         guard !isMapCentered || force, let location = locationManager.location else {
             locationManager.requestAlwaysAuthorization()
             return
@@ -300,21 +255,21 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         let adjustedRegion = mapView.mkMapView.regionThatFits(viewRegion)
 
         mapView.mkMapView.setRegion(adjustedRegion, animated: true)
-        
+
         mapView.mkMapView.showsUserLocation = true
     }
-    
+
     func prepareEmulator() {
         if adbDeviceId.isEmpty {
             showAlert("Please specify device id")
             return
         }
-        
+
         if adbPath.isEmpty {
             showAlert("Please specify path to adb")
             return
         }
-        
+
         executeAdbCommand(args: ["shell", "settings", "put", "secure", "location_providers_allowed", "+gps"])
         executeAdbCommand(
             args: ["shell", "settings", "put", "secure", "location_providers_allowed", "+network"],
@@ -333,8 +288,12 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             return
         }
 
-        let apkPath = Bundle.main.url(forResource: "helper-app", withExtension: "apk")!.path
-        let args = ["-s", adbDeviceId, "install", apkPath]
+        guard let apkURL = Bundle.main.url(forResource: "helper-app", withExtension: "apk") else {
+            showAlert("The helper APK is missing from the app bundle.")
+            return
+        }
+
+        let args = ["-s", adbDeviceId, "install", apkURL.path]
 
         executeAdbCommand(
             args: args,
@@ -348,42 +307,12 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     }
 
     func reset() {
-        resetAll()
-    }
-
-    // MARK: - MKMapViewDelegate
-
-    func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-        let renderer = MKPolylineRenderer(overlay: overlay)
-        renderer.strokeColor = NSColor(red: 17.0/255.0, green: 147.0/255.0, blue: 255.0/255.0, alpha: 1)
-        renderer.lineWidth = 5.0
-        return renderer
-    }
-
-    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-        if annotation === currentSimulationAnnotation {
-            let marker = MKMarkerAnnotationView(
-                annotation: currentSimulationAnnotation,
-                reuseIdentifier: "simulationMarker"
-            )
-            marker.markerTintColor = .orange
-            return marker
+        mapScene.resetMapVisuals()
+        if platform == .iOS {
+            runner.resetIos(showAlert: showAlert)
+        } else {
+            runner.resetAndroid(adbDeviceId: adbDeviceId, adbPath: adbPath, showAlert: showAlert)
         }
-        return nil
-    }
-
-    // MARK: - CLLocationManagerDelegate
-
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        updateMapRegion()
-    }
-
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        updateMapRegion()
-    }
-
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print(error.localizedDescription)
     }
 
     func mountDeveloperImage() {
@@ -392,46 +321,21 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             return
         }
 
-        Task { @MainActor in
-            let mountTask = try await runner.taskForIOS(
-                args: [
-                    "mounter",
-                    "mount-developer",
-                    "--udid",
-                    device.id,
-                    makeDeveloperImageDmgPath(iOSVersion: device.version),
-                    makeDeveloperImageSignaturePath(iOSVersion: device.version)
-                ],
-                showAlert: showAlert
-            )
-
-            let pipe = Pipe()
-            mountTask.standardOutput = pipe
-
-            let errorPipe = Pipe()
-            mountTask.standardError = errorPipe
-
+        Task {
             do {
-                try mountTask.run()
-                mountTask.waitUntilExit()
-
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                pipe.fileHandleForReading.closeFile()
-
-                if
-                    let errorData = try? errorPipe.fileHandleForReading.readToEnd(),
-                    let errorText = String(data: errorData, encoding: .utf8),
-                    !errorText.isEmpty {
-                    if errorText.range(of: "{'Error': 'DeviceLocked'}") != nil {
-                        showAlert("Error: Device is locked")
-                    } else {
-                        showAlert(errorText)
-                    }
-                }
-
-                if let text = String(data: data, encoding: .utf8), !text.isEmpty {
-                    showAlert(text)
-                }
+                let task = try await runner.taskForIOS(
+                    args: [
+                        "mounter",
+                        "mount-developer",
+                        "--udid",
+                        device.id,
+                        makeDeveloperImageDmgPath(iOSVersion: device.version),
+                        makeDeveloperImageSignaturePath(iOSVersion: device.version)
+                    ],
+                    showAlert: showAlert
+                )
+                let result = try ProcessRunner.run(task)
+                Self.presentPymobileDeviceOutput(stdout: result.stdout, stderr: result.stderr, showAlert: showAlert)
             } catch {
                 showAlert(error.localizedDescription)
             }
@@ -439,42 +343,17 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     }
 
     func unmountDeveloperImage() {
-        Task { @MainActor in
-            let mountTask = try await runner.taskForIOS(
-                args: [
-                    "mounter",
-                    "umount-developer"
-                ],
-                showAlert: showAlert
-            )
-
-            let pipe = Pipe()
-            mountTask.standardOutput = pipe
-
-            let errorPipe = Pipe()
-            mountTask.standardError = errorPipe
-
+        Task {
             do {
-                try mountTask.run()
-                mountTask.waitUntilExit()
-
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                pipe.fileHandleForReading.closeFile()
-
-                if
-                    let errorData = try? errorPipe.fileHandleForReading.readToEnd(),
-                    let errorText = String(data: errorData, encoding: .utf8),
-                    !errorText.isEmpty {
-                    if errorText.range(of: "{'Error': 'DeviceLocked'}") != nil {
-                        showAlert("Error: Device is locked")
-                    } else {
-                        showAlert(errorText)
-                    }
-                }
-
-                if let text = String(data: data, encoding: .utf8), !text.isEmpty {
-                    showAlert(text)
-                }
+                let task = try await runner.taskForIOS(
+                    args: [
+                        "mounter",
+                        "umount-developer"
+                    ],
+                    showAlert: showAlert
+                )
+                let result = try ProcessRunner.run(task)
+                Self.presentPymobileDeviceOutput(stdout: result.stdout, stderr: result.stderr, showAlert: showAlert)
             } catch {
                 showAlert(error.localizedDescription)
             }
@@ -482,7 +361,7 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     }
 
     func savePointA() {
-        guard let point = annotations.first?.coordinate else {
+        guard let point = mapScene.annotationEndpoints().first?.coordinate else {
             showAlert("Point A is not selected")
             return
         }
@@ -495,11 +374,12 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             )
         )
 
-        saveSavedLocations()
+        persistSavedLocations()
     }
 
     func savePointB() {
-        guard annotations.count == 2, let point = annotations.last?.coordinate else {
+        let endpoints = mapScene.annotationEndpoints()
+        guard endpoints.count == 2, let point = endpoints.last?.coordinate else {
             showAlert("Point B is not selected")
             return
         }
@@ -512,13 +392,12 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             )
         )
 
-        saveSavedLocations()
+        persistSavedLocations()
     }
 
     func removeLocation(location: Location) {
         savedLocations.removeAll { $0.id == location.id }
-
-        saveSavedLocations()
+        persistSavedLocations()
     }
 
     func update(_ location: Location, with name: String) {
@@ -536,11 +415,14 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             at: locationIndex
         )
 
-        saveSavedLocations()
+        persistSavedLocations()
     }
 
     func putLocationOnMap(location: Location) {
-        addLocation(coordinate: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude))
+        mapScene.addLocation(
+            coordinate: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude),
+            pointsMode: pointsMode
+        )
     }
 
     func showAlert(_ text: String) {
@@ -548,61 +430,62 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             self.alertText = text
             self.showingAlert = true
             self.isSimulating = false
+            self.log("Alert: \(text)")
         }
-        log("Alert: \(text)")
     }
 
     func importLocations(from data: Data) {
         let locations = (try? JSONDecoder().decode([Location].self, from: data)) ?? []
 
         savedLocations.append(contentsOf: locations)
-        saveSavedLocations()
+        persistSavedLocations()
     }
-    
+
     func setToCoordinate(latString: String = "", lngString: String = "") {
-        var lat: Double = 0
-        var lng: Double = 0
-        
-        lat = Double(latString) ?? 0
-        lng = Double(lngString) ?? 0
-        
-        guard lat > 0, lng > 0 else {
-            showAlert("Current location is unavailable")
+        let lat = Double(latString.trimmingCharacters(in: .whitespacesAndNewlines)) ?? .nan
+        let lng = Double(lngString.trimmingCharacters(in: .whitespacesAndNewlines)) ?? .nan
+
+        guard CoordinateParsing.isValid(latitude: lat, longitude: lng) else {
+            showAlert("Invalid coordinates (latitude −90…90, longitude −180…180)")
             return
         }
-        
-        putLocationOnMap(location: .init(name: "", latitude: lat, longitude: lng))
-        run(location: .init(latitude: lat, longitude: lng))
+
+        putLocationOnMap(location: Location(name: "", latitude: lat, longitude: lng))
+        run(location: CLLocationCoordinate2D(latitude: lat, longitude: lng))
     }
-    
+
     func setToCoordinate(latLngString: String = "") {
         let splitValue = latLngString.components(separatedBy: ",")
-     
+
         guard latLngString.contains(","), splitValue.count == 2 else {
-            showAlert("Current location is unavailable")
+            showAlert("Use the format latitude, longitude (comma-separated)")
             return
         }
-        
+
         let latSplitString = splitValue[0].trimmingCharacters(in: .whitespacesAndNewlines)
         let lngSplitString = splitValue[1].trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         setToCoordinate(latString: latSplitString, lngString: lngSplitString)
+    }
+
+    // MARK: - CLLocationManagerDelegate
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        updateMapRegion()
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        updateMapRegion()
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        log(error.localizedDescription)
     }
 
     // MARK: - Private
 
-    private func loadLocations() {
-        guard let data = defaults.data(forKey: Constants.defaultsSavedLocationsPathKey) else {
-            return
-        }
-
-        savedLocations = (try? JSONDecoder().decode([Location].self, from: data)) ?? []
-    }
-
-    private func saveSavedLocations() {
-        if let data = try? JSONEncoder().encode(savedLocations) {
-            defaults.set(data, forKey: Constants.defaultsSavedLocationsPathKey)
-        }
+    private func persistSavedLocations() {
+        savedLocationsStore.save(savedLocations)
     }
 
     private func invalidateState() {
@@ -614,55 +497,54 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
     }
 
     private func performMovement() {
-        guard self.isSimulating, self.tracks.count > 0, self.currentTrackIndex < self.tracks.count else {
-            self.isSimulating = false
-            self.timer?.invalidate()
-            self.timer = nil
-            self.currentTrackIndex = 0
-            self.printTimes()
+        guard isSimulating, tracks.count > 0, currentTrackIndex < tracks.count else {
+            isSimulating = false
+            timer?.invalidate()
+            timer = nil
+            currentTrackIndex = 0
+            printTimesToLog()
             return
         }
 
-        let track = self.tracks[self.currentTrackIndex]
+        let track = tracks[currentTrackIndex]
         let trackMove = track.getNextLocation(
-            from: self.lastTrackLocation,
-            speed: (self.speed / 3.6) * self.timeScale
+            from: lastTrackLocation,
+            speed: (speed / 3.6) * timeScale
         )
 
-        self.mapView.mkMapView.removeAnnotation(self.currentSimulationAnnotation)
+        mapScene.removeSimulationAnnotationFromMap()
 
         switch trackMove {
-            case .moveTo(let to, let from, let speed):
-                self.lastTrackLocation = to
-                self.run(location: to)
-                self.currentSimulationAnnotation.coordinate = to
-                print("move to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
+        case .moveTo(to: let to, from: let from, withSpeed: let moveSpeed):
+            lastTrackLocation = to
+            run(location: to)
+            mapScene.placeSimulationAnnotation(at: to)
+            log("move to — distance=\(CLLocation.distance(from: from, to: to)), speed=\(moveSpeed)")
 
-            case .finishTo(let to, let from, let speed):
-                self.lastTrackLocation = nil
-                self.currentTrackIndex += 1
-                self.run(location: to)
-                self.currentSimulationAnnotation.coordinate = to
-                print("finish to - distance=\(CLLocation.distance(from: from, to: to)), speed=\(speed)")
+        case .finishTo(to: let to, from: let from, withSpeed: let moveSpeed):
+            lastTrackLocation = nil
+            currentTrackIndex += 1
+            run(location: to)
+            mapScene.placeSimulationAnnotation(at: to)
+            log("finish to — distance=\(CLLocation.distance(from: from, to: to)), speed=\(moveSpeed)")
         }
 
-        self.tracksTimes[track] = (self.tracksTimes[track] ?? 0) + self.timeScale
-        self.mapView.mkMapView.addAnnotation(self.currentSimulationAnnotation)
+        tracksTimes[track] = (tracksTimes[track] ?? 0) + timeScale
     }
-    
+
     private func executeAdbCommand(args: [String], successMessage: String? = nil) {
         if adbDeviceId.isEmpty {
             showAlert("Please specify device id")
             return
         }
-        
+
         if adbPath.isEmpty {
             showAlert("Please specify path to adb")
             return
         }
-        
+
         let task = Process()
-        task.executableURL = URL(string: "file://\(adbPath)")!
+        task.executableURL = URL(fileURLWithPath: adbPath)
         task.arguments = args
 
         let errorPipe = Pipe()
@@ -678,78 +560,31 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         }
 
         let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let error = String(decoding: errorData, as: UTF8.self)
+        let errorText = String(decoding: errorData, as: UTF8.self)
 
-        if !error.isEmpty {
-            showAlert(error)
+        if !errorText.isEmpty {
+            showAlert(errorText)
         } else if let successMessage = successMessage {
             showAlert(successMessage)
         }
     }
 
-    private func printTimes() {
+    private func printTimesToLog() {
         tracksTimes.forEach { track, time in
             let distance = CLLocation.distance(from: track.startPoint.coordinate, to: track.endPoint.coordinate)
-            let speed = distance / time
-            print("Track result: speed=\(speed * 3.6), distance=\(distance), time=\(time)")
+            let avgSpeed = distance / time
+            log("Track result: speed=\(avgSpeed * 3.6) km/h, distance=\(distance), time=\(time)")
         }
-    }
-
-    private func handlePointsModeChange() {
-        if pointsMode == .single && annotations.count == 2, let second = annotations.last {
-            mapView.mkMapView.removeAnnotation(second)
-
-            if let route = route {
-                mapView.mkMapView.removeOverlay(route.polyline)
-            }
-
-            annotations = [annotations[0]]
-        }
-    }
-
-    private func handleMapClick(_ sender: NSClickGestureRecognizer) {
-        let point = sender.location(in: mapView.mkMapView)
-        handleSet(point: point)
-    }
-
-    private func handleSet(point: CGPoint) {
-        let clickLocation = mapView.mkMapView.convert(point, toCoordinateFrom: mapView.mkMapView)
-
-        addLocation(coordinate: clickLocation)
-    }
-
-    private func addLocation(coordinate: CLLocationCoordinate2D) {
-        if pointsMode == .single {
-            mapView.mkMapView.removeAnnotations(annotations)
-            annotations = []
-        }
-
-        if annotations.count == 2 {
-            mapView.mkMapView.removeAnnotations(mapView.mkMapView.annotations)
-            annotations = []
-            return
-        }
-
-        let annotation = MKPointAnnotation()
-        annotation.coordinate = coordinate
-        annotation.title = annotations.count == 0 ? "A" : "B"
-
-        annotations.append(annotation)
-        self.mapView.mkMapView.addAnnotation(annotation)
     }
 
     private func run(location: CLLocationCoordinate2D) {
-        defaults.set(deviceType, forKey: "device_type")
-        defaults.set(adbPath, forKey: "adb_path")
-        defaults.set(adbDeviceId, forKey: "adb_device_id")
-        defaults.set(isEmulator, forKey: "is_emulator")
-        
-        if deviceType != 0 {
-            do {
-                try runOnAndroid(location: location)
-            } catch {
-                showAlert("\(error)")
-            }
+        defaults.set(platform.rawValue, forKey: AppStorageKey.platform)
+        defaults.set(adbPath, forKey: AppStorageKey.adbPath)
+        defaults.set(adbDeviceId, forKey: AppStorageKey.adbDeviceId)
+        defaults.set(isEmulator, forKey: AppStorageKey.isEmulator)
+
+        if platform == .android {
+            runOnAndroid(location: location)
             return
         }
         if deviceMode == .device {
@@ -757,8 +592,8 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
                 Task {
                     try await runner.runOnNewIos(
                         location: location,
-                        RSDAddress: RSDAddress,
-                        RSDPort: RSDPort,
+                        rsdAddress: rsdAddress,
+                        rsdPort: rsdPort,
                         showAlert: showAlert
                     )
                 }
@@ -784,20 +619,20 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
             )
         }
     }
-    
-    private func runOnAndroid(location: CLLocationCoordinate2D) throws {
+
+    private func runOnAndroid(location: CLLocationCoordinate2D) {
         if adbDeviceId.isEmpty {
             showAlert("Please specify device id")
             return
         }
-        
+
         if adbPath.isEmpty {
             showAlert("Please specify path to adb")
             return
         }
-        
+
         log("""
-        Run on android 
+        Run on android
         - location: \(location)
         - adbDeviceId: \(adbDeviceId)
         - adbPath: \(adbPath)
@@ -812,119 +647,36 @@ class LocationController: NSObject, ObservableObject, MKMapViewDelegate, CLLocat
         )
     }
 
-    private func resetAll() {
-        mapView.mkMapView.removeAnnotations(mapView.mkMapView.annotations)
-        annotations = []
-
-        if let route = route {
-            mapView.mkMapView.removeOverlay(route.polyline)
-        }
-
-        if deviceType == 0 {
-            runner.resetIos(showAlert: showAlert)
-        } else {
-            runner.resetAndroid(adbDeviceId: adbDeviceId, adbPath: adbPath, showAlert: showAlert)
-        }
-    }
-
     private func makeDeveloperImageDmgPath(iOSVersion: String) -> String {
-        return "\(xcodePath)\(iOSDeveloperImagePath)\(iOSVersion)\(iOSDeveloperImageDmg)"
+        "\(xcodePath)\(iOSDeveloperImagePath)\(iOSVersion)\(iOSDeveloperImageDmg)"
     }
 
     private func makeDeveloperImageSignaturePath(iOSVersion: String) -> String {
-        return "\(xcodePath)\(iOSDeveloperImagePath)\(iOSVersion)\(iSODeveloperImageSignature)"
+        "\(xcodePath)\(iOSDeveloperImagePath)\(iOSVersion)\(iOSDeveloperImageSignature)"
     }
 
     private func log(_ message: String) {
         logs.insert(LogEntry(date: Date(), message: message), at: 0)
     }
-}
-
-private extension LocationController {
-
-    @MainActor
-    private func getConnectedDevices() async throws -> [Device] {
-        let task = try await runner.taskForIOS(args: ["usbmux", "list", "--no-color", "-u"], showAlert: showAlert)
-
-        log("getConnectedDevices: \(task.executableURL!.absoluteString) \(task.arguments!.joined(separator: " "))")
-
-        let pipe = Pipe()
-        task.standardOutput = pipe
-
-        try task.run()
-        task.waitUntilExit()
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        pipe.fileHandleForReading.closeFile()
-
-        if task.terminationStatus != 0 {
-            throw SimulatorFetchError.simctlFailed
-        }
-
-        let devices = try JSONDecoder().decode([Device].self, from: data)
-
-        log("connected devices: [\(devices.map { "\($0.id) \($0.name) \($0.version)" }.joined(separator: ", "))]")
-
-        return devices
+    
+    func clearLogs() {
+        logs.removeAll()
     }
 
-    private func getBootedSimulators() throws -> [Simulator] {
-        let task = Process()
-        task.launchPath = "/usr/bin/xcrun"
-        task.arguments = ["simctl", "list", "-j", "devices"]
+    private static func presentPymobileDeviceOutput(stdout: Data, stderr: Data, showAlert: @escaping (String) -> Void) {
+        let err = String(data: stderr, encoding: .utf8) ?? ""
+        let out = String(data: stdout, encoding: .utf8) ?? ""
 
-        log("getBootedSimulators: \(task.executableURL!.absoluteString) \(task.arguments!.joined(separator: " "))")
-
-        let pipe = Pipe()
-        task.standardOutput = pipe
-
-        task.launch()
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        task.waitUntilExit()
-        pipe.fileHandleForReading.closeFile()
-
-        if task.terminationStatus != 0 {
-            throw SimulatorFetchError.simctlFailed
-        }
-
-        let bootedSimulators: [Simulator]
-
-        do {
-            bootedSimulators = try JSONDecoder().decode(Simulators.self, from: data).bootedSimulators
-        } catch {
-            throw SimulatorFetchError.failedToReadOutput
-        }
-
-        if bootedSimulators.isEmpty {
-            throw SimulatorFetchError.noBootedSimulators
-        }
-
-        log("booted simulators: [\(bootedSimulators.map { "\($0.id) \($0.name)" }.joined(separator: ", "))]")
-
-        return [Simulator.empty()] + bootedSimulators
-    }
-
-    enum SimulatorFetchError: Error, CustomStringConvertible {
-        case simctlFailed
-        case failedToReadOutput
-        case noBootedSimulators
-        case noMatchingSimulators(name: String)
-        case noMatchingUDID(udid: UUID)
-
-        var description: String {
-            switch self {
-            case .simctlFailed:
-                return "Running `simctl list` failed"
-            case .failedToReadOutput:
-                return "Failed to read output from simctl"
-            case .noBootedSimulators:
-                return "No simulators are currently booted"
-            case .noMatchingSimulators(let name):
-                return "No booted simulators named '\(name)'"
-            case .noMatchingUDID(let udid):
-                return "No booted simulators with udid: \(udid.uuidString)"
+        if !err.isEmpty {
+            if err.range(of: "{'Error': 'DeviceLocked'}") != nil {
+                showAlert("Error: Device is locked")
+            } else {
+                showAlert(err)
             }
+        }
+
+        if !out.isEmpty {
+            showAlert(out)
         }
     }
 }
@@ -936,10 +688,4 @@ extension CLLocation {
         let to = CLLocation(latitude: to.latitude, longitude: to.longitude)
         return from.distance(from: to)
     }
-}
-
-private enum Constants {
-
-    static let defaultsSavedLocationsPathKey = "saved_locations"
-    static let defaultsXcodePathKey = "xcode_path"
 }

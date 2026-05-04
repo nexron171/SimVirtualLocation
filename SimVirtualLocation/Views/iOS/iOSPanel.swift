@@ -21,5 +21,6 @@ struct iOSPanel: View {
 struct iOSPanel_Previews: PreviewProvider {
     static var previews: some View {
         iOSPanel()
+            .environmentObject(LocationController(mapView: MapView()))
     }
 }

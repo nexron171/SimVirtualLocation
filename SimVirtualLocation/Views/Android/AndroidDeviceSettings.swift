@@ -36,5 +36,6 @@ struct AndroidDeviceSettings: View {
 struct AndroidDeviceSettings_Previews: PreviewProvider {
     static var previews: some View {
         AndroidDeviceSettings()
+            .environmentObject(LocationController(mapView: MapView()))
     }
 }

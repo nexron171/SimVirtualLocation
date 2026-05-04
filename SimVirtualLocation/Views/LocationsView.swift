@@ -18,7 +18,7 @@ struct LocationsView: View {
     @State private var isImporting = false
 
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
             Text("Locations")
 
             List {
@@ -48,6 +48,7 @@ struct LocationsView: View {
                 .background(Color.gray.opacity(0.25))
                 .cornerRadius(8)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .cornerRadius(16)
             .alert("Rename \(selectedLocation.name)", isPresented: $renameAlertShowing) {
                 TextField("Enter new name", text: $updatedName)
@@ -107,5 +108,6 @@ struct LocationsView: View {
 struct LocationsView_Previews: PreviewProvider {
     static var previews: some View {
         LocationsView()
+            .environmentObject(LocationController(mapView: MapView()))
     }
 }

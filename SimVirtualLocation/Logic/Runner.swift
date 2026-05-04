@@ -99,26 +99,32 @@ class Runner {
             task.waitUntilExit()
 
             if let errorData = try errorPipe.fileHandleForReading.readToEnd() {
-                let error = String(decoding: errorData, as: UTF8.self)
+                let errorText = String(decoding: errorData, as: UTF8.self)
 
-                if !error.isEmpty {
-                    showAlert(error)
+                if !errorText.isEmpty {
+                    Task { @MainActor in
+                        showAlert(errorText)
+                    }
                 }
             }
         } catch {
-            showAlert(error.localizedDescription)
+            Task { @MainActor in
+                showAlert(error.localizedDescription)
+            }
             return
         }
     }
 
     func runOnNewIos(
         location: CLLocationCoordinate2D,
-        RSDAddress: String,
-        RSDPort: String,
+        rsdAddress: String,
+        rsdPort: String,
         showAlert: @escaping (String) -> Void
     ) async throws {
-        guard !RSDAddress.isEmpty, !RSDPort.isEmpty else {
-            showAlert("Please specify RSD ID and Port")
+        guard !rsdAddress.isEmpty, !rsdPort.isEmpty else {
+            Task { @MainActor in
+                showAlert("Please specify RSD ID and Port")
+            }
             return
         }
 
@@ -135,8 +141,8 @@ class Runner {
                 "simulate-location",
                 "set",
                 "--rsd",
-                RSDAddress,
-                RSDPort,
+                rsdAddress,
+                rsdPort,
                 "--",
                 "\(location.latitude)",
                 "\(location.longitude)"
@@ -169,18 +175,22 @@ class Runner {
             task.waitUntilExit()
 
             if let errorData = try errorPipe.fileHandleForReading.readToEnd() {
-                let error = String(decoding: errorData, as: UTF8.self)
+                let errorText = String(decoding: errorData, as: UTF8.self)
 
-                if !error.isEmpty {
-                    showAlert(error)
+                if !errorText.isEmpty {
+                    Task { @MainActor in
+                        showAlert(errorText)
+                    }
                 }
             }
         } catch {
-            showAlert(error.localizedDescription)
+            Task { @MainActor in
+                showAlert(error.localizedDescription)
+            }
             return
         }
     }
-    
+
     func runOnAndroid(
         location: CLLocationCoordinate2D,
         adbDeviceId: String,
@@ -190,7 +200,7 @@ class Runner {
     ) {
         executionQueue.async {
             let task: Process
-            
+
             if isEmulator {
                 task = self.taskForAndroid(
                     args: [
@@ -213,36 +223,40 @@ class Runner {
                     adbPath: adbPath
                 )
             }
-            
+
             self.log?("set Android location \(location.description)")
             self.log?("task: \(task.logDescription)")
 
             let errorPipe = Pipe()
-            
+
             task.standardError = errorPipe
-            
+
             do {
                 try task.run()
                 task.waitUntilExit()
             } catch {
-                showAlert(error.localizedDescription)
+                Task { @MainActor in
+                    showAlert(error.localizedDescription)
+                }
                 return
             }
-            
+
             let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let error = String(decoding: errorData, as: UTF8.self)
-            
-            if !error.isEmpty {
-                showAlert(error)
+            let errorText = String(decoding: errorData, as: UTF8.self)
+
+            if !errorText.isEmpty {
+                Task { @MainActor in
+                    showAlert(errorText)
+                }
             }
         }
     }
     
-    func resetIos(showAlert: (String) -> Void) {
+    func resetIos(showAlert: @escaping (String) -> Void) {
         stop()
     }
-    
-    func resetAndroid(adbDeviceId: String, adbPath: String, showAlert: (String) -> Void) {
+
+    func resetAndroid(adbDeviceId: String, adbPath: String, showAlert: @escaping (String) -> Void) {
         let task = taskForAndroid(
             args: [
                 "-s", adbDeviceId,
@@ -259,20 +273,24 @@ class Runner {
         do {
             try task.run()
         } catch {
-            showAlert(error.localizedDescription)
+            Task { @MainActor in
+                showAlert(error.localizedDescription)
+            }
         }
-        
+
         let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let error = String(decoding: errorData, as: UTF8.self)
-        
-        if !error.isEmpty {
-            showAlert(error)
+        let errorText = String(decoding: errorData, as: UTF8.self)
+
+        if !errorText.isEmpty {
+            Task { @MainActor in
+                showAlert(errorText)
+            }
         }
         
         task.waitUntilExit()
     }
 
-    func taskForIOS(args: [String], showAlert: (String) -> Void) async throws -> Process {
+    func taskForIOS(args: [String], showAlert: @escaping (String) -> Void) async throws -> Process {
         // Check cache
         if pymobiledevicePath == nil || pymobiledevicePath == "" {
             pymobiledevicePath = findPymobiledevice3Path()
@@ -313,7 +331,9 @@ class Runner {
                     """
                 }
 
-                showAlert(message)
+                Task { @MainActor in
+                    showAlert(message)
+                }
                 pymobiledevicePath = ""
             }
         }

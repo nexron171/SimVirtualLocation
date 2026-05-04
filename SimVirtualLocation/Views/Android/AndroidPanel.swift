@@ -21,5 +21,6 @@ struct AndroidPanel: View {
 struct AndroidPanel_Previews: PreviewProvider {
     static var previews: some View {
         AndroidPanel()
+            .environmentObject(LocationController(mapView: MapView()))
     }
 }

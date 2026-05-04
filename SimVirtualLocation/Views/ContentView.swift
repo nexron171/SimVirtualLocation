@@ -14,10 +14,12 @@ struct ContentView: View {
     @ObservedObject var locationController: LocationController
 
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 0) {
                 ZStack(alignment: .bottomTrailing) {
-                    mapView.frame(minWidth: 400)
+                    mapView
+                        .frame(minWidth: 400)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     VStack {
                         Image(systemName: "plus")
                             .foregroundColor(Color.white)
@@ -55,70 +57,119 @@ struct ContentView: View {
                     }.padding()
                 }
 
-                VStack {
-                    Picker("Device mode", selection: $locationController.deviceType) {
-                        Text("iOS").tag(0)
-                        Text("Android").tag(1)
-                    }.labelsHidden().pickerStyle(.segmented)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Picker("Device mode", selection: $locationController.platform) {
+                            Text("iOS").tag(AppPlatform.iOS)
+                            Text("Android").tag(AppPlatform.android)
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
 
-                    if locationController.deviceType == 0 {
-                        iOSPanel()
-                            .environmentObject(locationController)
-                    } else {
-                        AndroidPanel()
-                            .environmentObject(locationController)
+                        if locationController.platform == .iOS {
+                            iOSPanel()
+                                .environmentObject(locationController)
+                        } else {
+                            AndroidPanel()
+                                .environmentObject(locationController)
+                        }
                     }
-
-                }.frame(width: 250)
+                    .frame(width: 250, alignment: .leading)
                     .padding(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 0))
+                }
+                .frame(minWidth: 266, maxWidth: 266, maxHeight: .infinity)
 
                 LocationsView()
                     .environmentObject(locationController)
-                    .frame(width: 300)
+                    .frame(minWidth: 300, maxWidth: 300, maxHeight: .infinity)
                     .padding(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
 
-            }.frame(minWidth: 1100, minHeight: 500)
+            }
+            .frame(minWidth: 1100, minHeight: 280)
+            .frame(maxHeight: .infinity)
                 .onAppear {
                     locationController.updateMapRegion()
                 }
-                .modifier(Alert(isPresented: $locationController.showingAlert, text: locationController.alertText))
+                .modifier(SimVirtualLocationAlertModifier(isPresented: $locationController.showingAlert, text: locationController.alertText))
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(locationController.logs) { log in
-                        HStack(spacing: 0) {
-                            Text(locationController.dateFormatter.string(from: log.date))
-                                .padding(2)
-                            Text(log.message)
-                                .lineLimit(nil)
-                                .multilineTextAlignment(.leading)
-                                .padding(2)
-
-                            Spacer()
+            VStack(spacing: 0) {
+                // Header с кнопкой скрытия/показа логов
+                HStack {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            locationController.showLogs.toggle()
                         }
-                        .frame(maxWidth: .infinity)
-                        .background(Color.gray.opacity(0.3))
-                        .cornerRadius(4)
-                        .padding(4)
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: locationController.showLogs ? "chevron.down" : "chevron.right")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("Logs")
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    Spacer()
+                    
+                    if locationController.showLogs {
+                        Button("Copy logs") {
+                            let log = locationController.logs.map { entry in
+                                let date = locationController.dateFormatter.string(from: entry.date)
+                                let message = entry.message
+
+                                return "\(date): \(message)"
+                            }.joined(separator: "\n\n")
+
+                            let pasteboard = NSPasteboard.general
+                            pasteboard.declareTypes([.string], owner: nil)
+
+                            pasteboard.setString(log, forType: .string)
+                        }
+                        .font(.system(size: 11))
+                        
+                        Button("Clear logs") {
+                            locationController.clearLogs()
+                        }
+                        .foregroundColor(.red)
+                        .font(.system(size: 11))
                     }
                 }
-                .frame(maxWidth: .infinity)
-            }.frame(maxWidth: .infinity, maxHeight: 100)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.gray.opacity(0.1))
+                
+                // Секция логов (показывается/скрывается)
+                if locationController.showLogs {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 1) {
+                            ForEach(locationController.logs) { log in
+                                HStack(spacing: 8) {
+                                    Text(locationController.dateFormatter.string(from: log.date))
+                                        .padding(.vertical, 4)
+                                        .padding(.horizontal, 8)
+                                    Text(log.message)
+                                        .lineLimit(nil)
+                                        .multilineTextAlignment(.leading)
+                                        .padding(.vertical, 4)
+                                        .padding(.horizontal, 8)
 
-            Button("Copy logs") {
-                let log = locationController.logs.map { entry in
-                    let date = locationController.dateFormatter.string(from: entry.date)
-                    let message = entry.message
-
-                    return "\(date): \(message)"
-                }.joined(separator: "\n\n")
-
-                let pasteboard = NSPasteboard.general
-                pasteboard.declareTypes([.string], owner: nil)
-
-                pasteboard.setString(log, forType: .string)
-            }.padding()
-        }.frame(minHeight: 800)
+                                    Spacer()
+                                }
+                                .frame(maxWidth: .infinity)
+                                .background(Color.gray.opacity(0.3))
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: locationController.showLogs ? 100 : 0)
+                    .clipped()
+                }
+            }
+        }
+        .frame(minWidth: 900, minHeight: 480)
     }
 
     init(mapView: MapView, locationController: LocationController) {
@@ -131,26 +182,6 @@ struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         let mapView = MapView()
         let locationController = LocationController(mapView: mapView)
-        ContentView(mapView: mapView, locationController: locationController)
-    }
-}
-
-struct Alert: ViewModifier {
-    let isPresented: Binding<Bool>
-    let text: String
-
-    func body(content: Content) -> some View {
-        if #available(macOS 12.0, *) {
-            content
-                .alert(text, isPresented: isPresented) {
-                    Text("OK")
-                }
-        } else {
-            content.alert(isPresented: isPresented) {
-                SwiftUI.Alert(
-                    title: Text(text)
-                )
-            }
-        }
+        return ContentView(mapView: mapView, locationController: locationController)
     }
 }
