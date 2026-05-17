@@ -18,6 +18,8 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
     @Published var pointsMode: PointsMode = .single {
         didSet { mapScene.handlePointsModeChange(to: pointsMode) }
     }
+
+    @Published var transportType: TransportType = .driving
     @Published var deviceMode: DeviceMode = .simulator
     @Published var xcodePath: String = "/Applications/Xcode.app" {
         didSet { defaults.set(xcodePath, forKey: AppStorageKey.xcodePath) }
@@ -174,7 +176,7 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
     }
 
     func makeRoute() {
-        mapScene.makeRoute(showAlert: showAlert)
+        mapScene.makeRoute(transportType: transportType, showAlert: showAlert)
     }
 
     func simulateRoute() {

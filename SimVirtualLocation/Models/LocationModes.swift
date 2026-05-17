@@ -13,3 +13,10 @@ enum PointsMode: Int, Identifiable {
 
     var id: Int { rawValue }
 }
+
+enum TransportType: Int, Identifiable {
+    case driving
+    case walking
+
+    var id: Int { rawValue }
+}
