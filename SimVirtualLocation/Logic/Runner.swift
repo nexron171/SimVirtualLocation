@@ -26,6 +26,11 @@ class Runner {
     private var tasks: [Process] = []
     private let maxTasksCount = 10
 
+    /// PIDs we terminated ourselves while trimming the task window. Their stderr is
+    /// expected noise (SIGTERM traceback) and must not surface as a user-facing alert,
+    /// because `showAlert` sets `isSimulating = false` and would abort the whole route.
+    private var reapedPIDs: Set<Int32> = []
+
     private var isStopped: Bool = false
 
     // MARK: - Internal Methods
@@ -33,6 +38,7 @@ class Runner {
     func stop() {
         tasks.forEach { $0.terminate() }
         tasks = []
+        reapedPIDs = []
 
         isStopped = true
     }
@@ -90,15 +96,26 @@ class Runner {
         do {
             try task.run()
             self.runnerQueue.async {
-                if self.tasks.count > self.maxTasksCount {
-                    self.stop()
+                // Trim the oldest processes instead of calling stop(): stop() tears down
+                // every task and flips isStopped, which silently aborts an in-flight route.
+                // The newest task holds the current location, so reaping the oldest is safe.
+                while self.tasks.count >= self.maxTasksCount {
+                    let old = self.tasks.removeFirst()
+                    if old.isRunning {
+                        self.reapedPIDs.insert(old.processIdentifier)
+                        old.terminate()
+                    }
                 }
                 self.tasks.append(task)
             }
 
             task.waitUntilExit()
 
-            if let errorData = try errorPipe.fileHandleForReading.readToEnd() {
+            let wasReaped = self.runnerQueue.sync {
+                self.reapedPIDs.remove(task.processIdentifier) != nil
+            }
+
+            if !wasReaped, let errorData = try errorPipe.fileHandleForReading.readToEnd() {
                 let errorText = String(decoding: errorData, as: UTF8.self)
 
                 if !errorText.isEmpty {
@@ -166,15 +183,26 @@ class Runner {
         do {
             try task.run()
             self.runnerQueue.async {
-                if self.tasks.count > self.maxTasksCount {
-                    self.stop()
+                // Trim the oldest processes instead of calling stop(): stop() tears down
+                // every task and flips isStopped, which silently aborts an in-flight route.
+                // The newest task holds the current location, so reaping the oldest is safe.
+                while self.tasks.count >= self.maxTasksCount {
+                    let old = self.tasks.removeFirst()
+                    if old.isRunning {
+                        self.reapedPIDs.insert(old.processIdentifier)
+                        old.terminate()
+                    }
                 }
                 self.tasks.append(task)
             }
 
             task.waitUntilExit()
 
-            if let errorData = try errorPipe.fileHandleForReading.readToEnd() {
+            let wasReaped = self.runnerQueue.sync {
+                self.reapedPIDs.remove(task.processIdentifier) != nil
+            }
+
+            if !wasReaped, let errorData = try errorPipe.fileHandleForReading.readToEnd() {
                 let errorText = String(decoding: errorData, as: UTF8.self)
 
                 if !errorText.isEmpty {
