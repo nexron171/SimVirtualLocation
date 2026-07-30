@@ -24,6 +24,11 @@ struct LocationSettingsPanel: View {
                     Text("Two").tag(PointsMode.two)
                 }.pickerStyle(.segmented)
 
+                Picker("Transport type", selection: $locationController.transportType) {
+                    Text("Driving").tag(TransportType.driving)
+                    Text("Walking").tag(TransportType.walking)
+                }.pickerStyle(.segmented)
+
                 Button(action: {
                     locationController.setCurrentLocation()
                 }, label: {
