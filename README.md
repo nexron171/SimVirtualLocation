@@ -45,46 +45,4 @@ Try to refresh list and if it does not help - go to Settings / Developer on iPho
 1. Grant permission to mock location - go to Developer settings and find `Application for mocking locations` or something similar and choose SimVirtualLocation
 1. Keep SimVirtualLocation running in background while mocking
 
-### Contributors
 
-<!-- readme: collaborators,contributors -start -->
-<table>
-    <tr>
-        <td align="center">
-            <a href="https://github.com/nexron171">
-                <img src="https://avatars.githubusercontent.com/u/6318346?v=4" width="100;" alt="nexron171"/>
-                <br />
-                <sub><b>Sergey Shirnin</b></sub>
-            </a>
-        </td>
-        <td align="center">
-            <a href="https://github.com/sk-chanch">
-                <img src="https://avatars.githubusercontent.com/u/22313319?v=4" width="100;" alt="sk-chanch"/>
-                <br />
-                <sub><b>Skipp</b></sub>
-            </a>
-        </td>
-        <td align="center">
-            <a href="https://github.com/styresdc">
-                <img src="https://avatars.githubusercontent.com/u/10870930?v=4" width="100;" alt="styresdc"/>
-                <br />
-                <sub><b>styresdc</b></sub>
-            </a>
-        </td>
-        <td align="center">
-            <a href="https://github.com/natiginfo">
-                <img src="https://avatars.githubusercontent.com/u/3982965?v=4" width="100;" alt="styresdc"/>
-                <br />
-                <sub><b>natiginfo</b></sub>
-            </a>
-        </td>
-        <td align="center">
-            <a href="https://github.com/resuly">
-                <img src="https://avatars.githubusercontent.com/u/3870826?v=4" width="100;" alt="styresdc"/>
-                <br />
-                <sub><b>resuly</b></sub>
-            </a>
-        </td>
-    </tr>
-</table>
-<!-- readme: collaborators,contributors -end -->
