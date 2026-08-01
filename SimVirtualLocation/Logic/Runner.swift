@@ -16,6 +16,17 @@ class Runner {
     var log: ((String) -> Void)?
     var pymobiledevicePath: String?
 
+    /// Reports progress of device operations so the UI can show something during the
+    /// seconds a userspace tunnel takes to come up, rather than appearing frozen.
+    var onActivity: ((DeviceActivity) -> Void)?
+
+    /// Called with each coordinate `simulate-location play` actually applies, so the map
+    /// can follow the device instead of animating on an independent clock.
+    var onLocationPlayed: ((Double, Double) -> Void)?
+
+    /// Partial stderr line carried between reads, since chunks split arbitrarily.
+    private var playbackLogBuffer = ""
+
     // MARK: - Private Properties
 
     private let runnerQueue = DispatchQueue(label: "runnerQueue", qos: .background)
@@ -36,12 +47,25 @@ class Runner {
 
     private var isStopped: Bool = false
 
+    /// Long-lived `simulate-location play` process for route playback, if one is running.
+    private var routePlaybackTask: Process?
+
     // MARK: - Internal Methods
 
     func stop() {
+        stopRoutePlayback()
+
+        // Record before terminating. The termination handlers run asynchronously and
+        // consult this set; clearing it here let a routine SIGTERM traceback reach the
+        // user as an alert. Each handler removes its own PID, so the set drains itself.
+        runnerQueue.sync {
+            for task in tasks where task.isRunning {
+                reapedPIDs.insert(task.processIdentifier)
+            }
+        }
+
         tasks.forEach { $0.terminate() }
         tasks = []
-        reapedPIDs = []
 
         isStopped = true
     }
@@ -109,14 +133,34 @@ class Runner {
             }
             guard !wasReaped else { return }
 
+            // A clean exit is not a failure: `play` logs every waypoint to stderr, so
+            // surfacing stderr unconditionally would alert at the end of every route.
+            guard finished.terminationStatus != 0 else { return }
+
             guard let errorData = try? errorPipe.fileHandleForReading.readToEnd() else { return }
             let errorText = String(decoding: errorData, as: UTF8.self)
             guard !errorText.isEmpty else { return }
+
+            self.onActivity?(.failed(Self.summarize(errorText)))
 
             Task { @MainActor in
                 showAlert(errorText)
             }
         }
+
+        // `simulate-location set` prints wait_return()'s "Press Ctrl+C" banner to stdout
+        // immediately after the location has been applied — use it as a readiness signal.
+        let readyPipe = outputPipe
+        readyPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let chunk = handle.availableData
+            guard !chunk.isEmpty else { return }
+            if String(decoding: chunk, as: UTF8.self).contains("Ctrl+C") {
+                readyPipe.fileHandleForReading.readabilityHandler = nil
+                self?.onActivity?(.active("Location set"))
+            }
+        }
+
+        onActivity?(.working("Connecting to device…"))
 
         do {
             try task.run()
@@ -143,13 +187,12 @@ class Runner {
 
     func runOnNewIos(
         location: CLLocationCoordinate2D,
-        rsdAddress: String,
-        rsdPort: String,
+        connection: IOSConnection,
         showAlert: @escaping (String) -> Void
     ) async throws {
-        guard !rsdAddress.isEmpty, !rsdPort.isEmpty else {
+        guard let connectionArguments = connection.arguments else {
             Task { @MainActor in
-                showAlert("Please specify RSD ID and Port")
+                showAlert(connection.configurationHint)
             }
             return
         }
@@ -161,18 +204,9 @@ class Runner {
         }
 
         let task = try await self.taskForIOS(
-            args: [
-                "developer",
-                "dvt",
-                "simulate-location",
-                "set",
-                "--rsd",
-                rsdAddress,
-                rsdPort,
-                "--",
-                "\(location.latitude)",
-                "\(location.longitude)"
-            ],
+            args: ["developer", "dvt", "simulate-location", "set"]
+                + connectionArguments
+                + ["--", "\(location.latitude)", "\(location.longitude)"],
             showAlert: showAlert
         )
 
@@ -202,14 +236,34 @@ class Runner {
             }
             guard !wasReaped else { return }
 
+            // A clean exit is not a failure: `play` logs every waypoint to stderr, so
+            // surfacing stderr unconditionally would alert at the end of every route.
+            guard finished.terminationStatus != 0 else { return }
+
             guard let errorData = try? errorPipe.fileHandleForReading.readToEnd() else { return }
             let errorText = String(decoding: errorData, as: UTF8.self)
             guard !errorText.isEmpty else { return }
+
+            self.onActivity?(.failed(Self.summarize(errorText)))
 
             Task { @MainActor in
                 showAlert(errorText)
             }
         }
+
+        // `simulate-location set` prints wait_return()'s "Press Ctrl+C" banner to stdout
+        // immediately after the location has been applied — use it as a readiness signal.
+        let readyPipe = outputPipe
+        readyPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let chunk = handle.availableData
+            guard !chunk.isEmpty else { return }
+            if String(decoding: chunk, as: UTF8.self).contains("Ctrl+C") {
+                readyPipe.fileHandleForReading.readabilityHandler = nil
+                self?.onActivity?(.active("Location set"))
+            }
+        }
+
+        onActivity?(.working(connection.progressDescription))
 
         do {
             try task.run()
@@ -232,6 +286,152 @@ class Runner {
             }
             return
         }
+    }
+
+    /// Replay an entire route with a single `simulate-location play` process.
+    ///
+    /// `play` walks the GPX inside one DVT session, so it neither spawns a child per waypoint
+    /// nor holds several device sessions open at once.
+    func playRoute(
+        gpxURL: URL,
+        connection: IOSConnection,
+        showAlert: @escaping (String) -> Void
+    ) async throws {
+        guard let connectionArguments = connection.arguments else {
+            Task { @MainActor in
+                showAlert(connection.configurationHint)
+            }
+            return
+        }
+
+        stopRoutePlayback()
+        self.isStopped = false
+        self.playbackLogBuffer = ""
+
+        let task = try await self.taskForIOS(
+            args: ["developer", "dvt", "simulate-location", "play", gpxURL.path] + connectionArguments,
+            showAlert: showAlert
+        )
+
+        self.log?("playing route: \(gpxURL.lastPathComponent)")
+        self.log?("task: \(task.logDescription)")
+
+        let errorPipe = Pipe()
+        task.standardInput = Pipe()
+        task.standardOutput = Pipe()
+        task.standardError = errorPipe
+
+        task.terminationHandler = { [weak self] finished in
+            guard let self = self else { return }
+
+            let wasReaped = self.runnerQueue.sync {
+                self.reapedPIDs.remove(finished.processIdentifier) != nil
+            }
+            guard !wasReaped else { return }
+
+            // A clean exit is not a failure: `play` logs every waypoint to stderr, so
+            // surfacing stderr unconditionally would alert at the end of every route.
+            guard finished.terminationStatus != 0 else { return }
+
+            guard let errorData = try? errorPipe.fileHandleForReading.readToEnd() else { return }
+            let errorText = String(decoding: errorData, as: UTF8.self)
+            guard !errorText.isEmpty else { return }
+
+            self.onActivity?(.failed(Self.summarize(errorText)))
+
+            Task { @MainActor in
+                showAlert(errorText)
+            }
+        }
+
+        // pymobiledevice3 logs every waypoint it applies to stderr. Parse them so the map
+        // can track the device exactly, and so the first one marks playback as started.
+        var announced = false
+        errorPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            guard let self = self else { return }
+            let chunk = handle.availableData
+            guard !chunk.isEmpty else { return }
+
+            self.playbackLogBuffer += String(decoding: chunk, as: UTF8.self)
+            var lines = self.playbackLogBuffer.components(separatedBy: "\n")
+            self.playbackLogBuffer = lines.removeLast()
+
+            for line in lines {
+                guard let range = line.range(of: "set location to ") else { continue }
+
+                if !announced {
+                    announced = true
+                    self.onActivity?(.active("Route playing"))
+                }
+
+                let parts = line[range.upperBound...].split(separator: " ")
+                guard parts.count >= 2,
+                      let latitude = Double(parts[0]),
+                      let longitude = Double(parts[1]) else { continue }
+
+                self.onLocationPlayed?(latitude, longitude)
+            }
+        }
+
+        onActivity?(.working(connection.progressDescription))
+
+        do {
+            try task.run()
+            self.routePlaybackTask = task
+        } catch {
+            Task { @MainActor in
+                showAlert(error.localizedDescription)
+            }
+        }
+    }
+
+    /// First meaningful line of a traceback, for a one-line status message.
+    private static func summarize(_ text: String) -> String {
+        let line = text
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .last { !$0.isEmpty && !$0.hasPrefix("│") && !$0.hasPrefix("╰") && !$0.hasPrefix("╭") }
+        return line ?? "Device operation failed"
+    }
+
+    /// Terminate route playback, if running. Its stderr is suppressed because a SIGTERM
+    /// traceback here is expected rather than an error worth surfacing.
+    func stopRoutePlayback() {
+        guard let task = routePlaybackTask else { return }
+        routePlaybackTask = nil
+
+        guard task.isRunning else { return }
+        runnerQueue.sync { _ = reapedPIDs.insert(task.processIdentifier) }
+
+        // A suspended child would not act on SIGTERM until resumed, so continue it first.
+        kill(task.processIdentifier, SIGCONT)
+        task.terminate()
+    }
+
+    /// Whether a route playback process is currently alive. False once its tunnel has
+    /// died, in which case resuming means rebuilding the remainder rather than SIGCONT.
+    var isPlaybackRunning: Bool {
+        routePlaybackTask?.isRunning == true
+    }
+
+    /// Suspend route playback where it stands.
+    ///
+    /// `play` sleeps between waypoints, so SIGSTOP freezes it mid-route and SIGCONT picks
+    /// up exactly where it left off — no need to regenerate the route or start over.
+    @discardableResult
+    func pauseRoutePlayback() -> Bool {
+        guard let task = routePlaybackTask, task.isRunning else { return false }
+        guard kill(task.processIdentifier, SIGSTOP) == 0 else { return false }
+        onActivity?(.working("Route paused"))
+        return true
+    }
+
+    @discardableResult
+    func resumeRoutePlayback() -> Bool {
+        guard let task = routePlaybackTask, task.isRunning else { return false }
+        guard kill(task.processIdentifier, SIGCONT) == 0 else { return false }
+        onActivity?(.active("Route playing"))
+        return true
     }
 
     func runOnAndroid(
@@ -389,6 +589,13 @@ class Runner {
         let task = Process()
         task.executableURL = path
         task.arguments = args
+
+        // Python block-buffers stdout when it is a pipe rather than a terminal. Without
+        // this, `simulate-location set` parks in sigwait before flushing its readiness
+        // banner, so the UI would wait for a signal that never arrives.
+        var environment = ProcessInfo.processInfo.environment
+        environment["PYTHONUNBUFFERED"] = "1"
+        task.environment = environment
 
         return task
     }

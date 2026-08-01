@@ -9,4 +9,5 @@ enum AppStorageKey {
     static let adbPath = "adb_path"
     static let adbDeviceId = "adb_device_id"
     static let isEmulator = "is_emulator"
+    static let useUserspace = "use_userspace_tunnel"
 }

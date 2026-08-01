@@ -11,7 +11,8 @@ enum IOSUSBDeviceDiscovery {
         showAlert: @escaping (String) -> Void,
         log: @escaping (String) -> Void
     ) async throws -> [Device] {
-        let task = try await runner.taskForIOS(args: ["usbmux", "list", "--no-color", "-u"], showAlert: showAlert)
+        // `--no-color` is a global option: pymobiledevice3 rejects it after the subcommand.
+        let task = try await runner.taskForIOS(args: ["--no-color", "usbmux", "list", "-u"], showAlert: showAlert)
 
         let exe = task.executableURL?.path ?? ""
         let args = task.arguments?.joined(separator: " ") ?? ""
@@ -20,6 +21,8 @@ enum IOSUSBDeviceDiscovery {
         let result = try ProcessRunner.run(task)
 
         guard result.terminationStatus == 0 else {
+            let message = String(decoding: result.stderr, as: UTF8.self)
+            log("device list failed: \(message.isEmpty ? "exit \(result.terminationStatus)" : message)")
             throw IOSUSBDiscoveryError.listCommandFailed
         }
 

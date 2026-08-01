@@ -102,6 +102,14 @@ struct LocationSettingsPanel: View {
                 })
 
                 Button(action: {
+                    locationController.togglePauseSimulation()
+                }, label: {
+                    Text(locationController.isPaused ? "Resume simulation" : "Pause simulation")
+                        .frame(maxWidth: .infinity)
+                })
+                .disabled(!locationController.isSimulating)
+
+                Button(action: {
                     locationController.stopSimulation()
                 }, label: {
                     Text("Stop simulation").frame(maxWidth: .infinity)
@@ -110,10 +118,33 @@ struct LocationSettingsPanel: View {
 
             GroupBox {
                 VStack(alignment: .leading) {
-                    Slider(value: $locationController.speed, in: 5...200, step: 5) {
+                    Slider(
+                        value: $locationController.speed,
+                        in: LocationController.minimumSpeed...LocationController.maximumSpeed,
+                        step: 5
+                    ) {
                         Text("Speed")
                     }
                     Text("\(Int(locationController.speed.rounded(.up))) km/h")
+
+                    if let summary = locationController.routeSummary {
+                        Text(summary)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    HStack {
+                        Text("Arrive in")
+                        TextField("min", text: $locationController.targetDurationMinutes)
+                            .frame(width: 56)
+                        Text("min")
+                        Spacer()
+                        Button("Set speed") {
+                            locationController.applyTargetDuration()
+                        }
+                    }
+                    .disabled(locationController.routeDistance == 0)
                 }
             }
             

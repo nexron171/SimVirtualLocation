@@ -5,6 +5,8 @@ import Foundation
 protocol DeviceLocationRunning: IOSProcessLaunching {
     var timeDelay: TimeInterval { get set }
     var log: ((String) -> Void)? { get set }
+    var onActivity: ((DeviceActivity) -> Void)? { get set }
+    var onLocationPlayed: ((Double, Double) -> Void)? { get set }
     var pymobiledevicePath: String? { get set }
 
     func stop()
@@ -23,10 +25,25 @@ protocol DeviceLocationRunning: IOSProcessLaunching {
 
     func runOnNewIos(
         location: CLLocationCoordinate2D,
-        rsdAddress: String,
-        rsdPort: String,
+        connection: IOSConnection,
         showAlert: @escaping (String) -> Void
     ) async throws
+
+    func playRoute(
+        gpxURL: URL,
+        connection: IOSConnection,
+        showAlert: @escaping (String) -> Void
+    ) async throws
+
+    var isPlaybackRunning: Bool { get }
+
+    func stopRoutePlayback()
+
+    @discardableResult
+    func pauseRoutePlayback() -> Bool
+
+    @discardableResult
+    func resumeRoutePlayback() -> Bool
 
     func runOnAndroid(
         location: CLLocationCoordinate2D,
