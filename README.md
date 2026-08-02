@@ -7,6 +7,7 @@ Posibilities:
 - set location to current Mac's location
 - set location to point on map
 - make route between two points and simulate moving with desired speed
+- pause and resume a route without starting it over, and change speed while it runs
 
 You can dowload compiled and signed app [here](https://github.com/nexron171/SimVirtualLocation/releases).
 
@@ -26,11 +27,21 @@ brew install python3 && python3 -m pip install -U pymobiledevice3
 
 For iOS Device - select device from dropdown and then click on Mound Developer Image. If you see an error that there is no appropriate image - download one from https://github.com/mspvirajpatel/Xcode_Developer_Disk_Images/releases if your iOS for example 16.5.1 and there is only 16.5 - it's ok, just copy and rename it to 16.5.1 and put it inside Xcode at `.../Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/`
 
-For iOS 17+ select checkbox iOS 17+ and provide RSD Address and RSD Port from command:
+#### iOS 17 and newer
+
+Leave the **iOS 17+** checkbox ticked (it is on by default) and keep **Connection** on
+**Automatic**. Pick your iPhone from the **Device** dropdown and that is the whole setup —
+SimVirtualLocation opens the tunnel itself using pymobiledevice3's userspace network stack,
+so no Terminal window and no `sudo` are involved. Progress is shown under the dropdown while
+the tunnel comes up.
+
+Switch **Connection** to **Manual** only if you would rather use a kernel tunnel, which is
+faster for large transfers. Start it yourself, keep it running, and copy the two values it
+prints into the RSD Address and RSD Port fields:
+
 ```shell
 sudo python3 -m pymobiledevice3 remote start-tunnel
 ```
-It needs sudo, because it will instantiate low level connection between Mac and iPhone. Keep this command running while mocking location for iOS 17+.
 
 ### If iOS device is unlisted
 

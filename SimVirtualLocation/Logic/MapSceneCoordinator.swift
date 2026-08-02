@@ -47,7 +47,11 @@ final class MapSceneCoordinator: NSObject, MKMapViewDelegate {
         pointAnnotations
     }
 
-    func makeRoute(transportType: TransportType, showAlert: @escaping (String) -> Void) {
+    func makeRoute(
+        transportType: TransportType,
+        showAlert: @escaping (String) -> Void,
+        onRouteReady: @escaping (MKRoute) -> Void = { _ in }
+    ) {
         guard pointAnnotations.count == 2 else {
             showAlert("Route requires two points")
             return
@@ -102,6 +106,8 @@ final class MapSceneCoordinator: NSObject, MKMapViewDelegate {
 
                 let rect = route.polyline.boundingMapRect
                 self.mapView.setRegion(MKCoordinateRegion(rect.insetBy(dx: -1000, dy: -1000)), animated: true)
+
+                onRouteReady(route)
             }
         }
     }

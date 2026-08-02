@@ -14,9 +14,16 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
     // MARK: - Publishers
 
     @Published var isSimulating = false
-    @Published var speed: Double = 60.0
+    @Published var speed: Double = 60.0 {
+        didSet { scheduleSpeedChange() }
+    }
     @Published var pointsMode: PointsMode = .single {
-        didSet { mapScene.handlePointsModeChange(to: pointsMode) }
+        didSet {
+            mapScene.handlePointsModeChange(to: pointsMode)
+            if pointsMode == .single {
+                clearRouteState()
+            }
+        }
     }
 
     @Published var transportType: TransportType = .driving
@@ -25,7 +32,44 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
         didSet { defaults.set(xcodePath, forKey: AppStorageKey.xcodePath) }
     }
 
-    @Published var useRSD: Bool = false
+    @Published var useRSD: Bool = true
+
+    /// Establish the iOS 17+ tunnel in-process instead of relying on a tunnel the user starts
+    /// with `sudo` in Terminal. Removes the need for RSD Address / RSD Port entirely.
+    @Published var useUserspace: Bool = true {
+        didSet { defaults.set(useUserspace, forKey: AppStorageKey.useUserspace) }
+    }
+
+    /// True while an entire route is being replayed by a single `simulate-location play`
+    /// process, in which case `performMovement` animates the map but must not also push
+    /// locations itself.
+    private var isPlayingRoute = false
+
+    /// Progress of the current device operation, shown next to the device picker.
+    @Published var activity: DeviceActivity = .idle
+
+    /// True while a simulation is suspended and can be resumed from the same point.
+    @Published var isPaused = false
+
+    /// Length of the route currently loaded, in metres. Zero when none is loaded.
+    @Published private(set) var routeDistance: CLLocationDistance = 0
+
+    /// Journey time the user wants, in minutes. Applying it derives the speed.
+    @Published var targetDurationMinutes: String = ""
+
+    /// Route being played, and how much of it the device has already covered. Used to
+    /// rebuild the remainder when the speed changes mid-route.
+    private var playbackCoordinates: [CLLocationCoordinate2D] = []
+    private var playbackIndex = 0
+    private var speedChangeWork: DispatchWorkItem?
+
+    /// How often connected devices are rescanned. Scanning shells out to pymobiledevice3,
+    /// so poll briskly only while waiting for a device to appear and back off once one is
+    /// attached, where the scan exists just to notice a disconnect.
+    private static let deviceScanIntervalWaiting: TimeInterval = 3
+    private static let deviceScanIntervalAttached: TimeInterval = 15
+
+    private var deviceMonitorTask: Task<Void, Never>?
 
     @Published var bootedSimulators: [Simulator] = []
     @Published var selectedSimulator: String = ""
@@ -100,6 +144,26 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
         self.savedLocationsStore = savedLocationsStore
         super.init()
 
+        if defaults.object(forKey: AppStorageKey.useUserspace) != nil {
+            useUserspace = defaults.bool(forKey: AppStorageKey.useUserspace)
+        }
+
+        runner.onLocationPlayed = { [weak self] latitude, longitude in
+            DispatchQueue.main.async {
+                guard let self = self, self.isPlayingRoute else { return }
+                let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+                self.playbackIndex += 1
+                self.mapScene.removeSimulationAnnotationFromMap()
+                self.mapScene.placeSimulationAnnotation(at: coordinate)
+            }
+        }
+
+        runner.onActivity = { [weak self] activity in
+            DispatchQueue.main.async {
+                self?.activity = activity
+            }
+        }
+
         runner.log = { [weak self] message in
             DispatchQueue.main.async {
                 self?.log(message)
@@ -119,6 +183,7 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
 
         Task {
             await refreshDevices()
+            startDeviceMonitoring()
 
             if let p = AppPlatform(rawValue: defaults.integer(forKey: AppStorageKey.platform)) {
                 platform = p
@@ -135,8 +200,19 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
     // MARK: - Public
 
     func refreshDevices() async {
+        await refreshDevices(silently: false)
+    }
+
+    /// - Parameter silently: when true this is a background rescan, so a failure is logged
+    ///   rather than raised — a device being unplugged is not an error worth alarming about.
+    func refreshDevices(silently: Bool) async {
         bootedSimulators = (try? SimulatorDiscovery.fetchBootedSimulators(log: { [weak self] in self?.log($0) })) ?? []
-        selectedSimulator = bootedSimulators.first?.id ?? ""
+        if selectedSimulator.isEmpty || !bootedSimulators.contains(where: { $0.id == selectedSimulator }) {
+            selectedSimulator = bootedSimulators.first?.id ?? ""
+        }
+
+        let previousSelection = selectedDevice
+        let previousDevices = connectedDevices
 
         do {
             connectedDevices = try await IOSUSBDeviceDiscovery.fetchConnectedDevices(
@@ -146,8 +222,78 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
             )
         } catch {
             connectedDevices = []
+            if !silently {
+                activity = .failed("Could not list devices — see Logs")
+            }
         }
-        selectedDevice = connectedDevices.first?.id ?? ""
+
+        // Keep the user's choice as long as that device is still attached.
+        if connectedDevices.contains(where: { $0.id == previousSelection }) {
+            selectedDevice = previousSelection
+        } else {
+            selectedDevice = connectedDevices.first?.id ?? ""
+        }
+
+        let changed = connectedDevices != previousDevices
+
+        if connectedDevices.isEmpty {
+            if changed, !previousDevices.isEmpty {
+                handleDeviceDisconnected()
+            } else if activity == .idle {
+                activity = .working("Waiting for a device…")
+            }
+            return
+        }
+
+        guard changed else { return }
+
+        if previousDevices.isEmpty {
+            activity = .active("Device connected")
+        } else {
+            activity = .idle
+        }
+        log("connected devices: \(connectedDevices.map { $0.name }.joined(separator: ", "))")
+    }
+
+    /// The device went away mid-session.
+    ///
+    /// iOS drops the simulated location as soon as the tunnel dies, so the phone is already
+    /// back on real GPS. Say so rather than leaving a stale "Location set" on screen, and
+    /// suspend any route instead of resuming it silently — re-spoofing a location the user
+    /// is no longer watching is worse than making them press Resume.
+    private func handleDeviceDisconnected() {
+        log("device disconnected")
+
+        guard isSimulating else {
+            activity = .failed("Device disconnected — location no longer simulated")
+            return
+        }
+
+        runner.stopRoutePlayback()
+        timer?.invalidate()
+        timer = nil
+        isPaused = true
+        activity = .failed("Device disconnected — simulation paused")
+    }
+
+    /// Rescan for devices on a timer so connecting a phone is noticed without the user
+    /// having to ask. Cancelled and restarted rather than left to stack up.
+    private func startDeviceMonitoring() {
+        deviceMonitorTask?.cancel()
+        deviceMonitorTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self = self else { return }
+
+                let interval = self.connectedDevices.isEmpty
+                    ? Self.deviceScanIntervalWaiting
+                    : Self.deviceScanIntervalAttached
+
+                try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+
+                await self.refreshDevices(silently: true)
+            }
+        }
     }
 
     func setCurrentLocation() {
@@ -176,8 +322,74 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
     }
 
     func makeRoute() {
-        mapScene.makeRoute(transportType: transportType, showAlert: showAlert)
+        mapScene.makeRoute(
+            transportType: transportType,
+            showAlert: showAlert,
+            onRouteReady: { [weak self] route in
+                self?.routeDistance = route.distance
+            }
+        )
     }
+
+    /// Forget everything derived from a route once that route is gone, so distance,
+    /// journey time and the duration control do not outlive what they describe.
+    private func clearRouteState() {
+        routeDistance = 0
+        targetDurationMinutes = ""
+        tracks = []
+        tracksTimes = [:]
+        playbackCoordinates = []
+        playbackIndex = 0
+    }
+
+    /// Distance and journey time for the loaded route at the current speed.
+    var routeSummary: String? {
+        guard routeDistance > 0 else { return nil }
+
+        let seconds = routeDistance / max(speed / 3.6, 0.1)
+        let minutes = Int((seconds / 60).rounded())
+        let duration = minutes >= 60
+            ? "\(minutes / 60)h \(minutes % 60)m"
+            : "\(max(minutes, 1)) min"
+
+        let distance = String(format: "%.2f km", routeDistance / 1000)
+        return "\(distance) · about \(duration) at \(Int(speed.rounded())) km/h"
+    }
+
+    /// Pick the speed that covers the loaded route in `targetDurationMinutes`.
+    ///
+    /// Speed is clamped to the slider's range, and the user is told when the requested
+    /// time is not achievable within it rather than being given a silently wrong speed.
+    func applyTargetDuration() {
+        guard routeDistance > 0 else {
+            showAlert("Make a route first, then set how long it should take.")
+            return
+        }
+
+        guard let minutes = Double(targetDurationMinutes.trimmingCharacters(in: .whitespaces)),
+              minutes > 0 else {
+            showAlert("Enter the journey time in minutes, for example 20.")
+            return
+        }
+
+        let required = routeDistance / (minutes * 60) * 3.6
+        let clamped = min(max(required, Self.minimumSpeed), Self.maximumSpeed)
+        speed = (clamped / 5).rounded() * 5
+
+        if required > Self.maximumSpeed || required < Self.minimumSpeed {
+            showAlert(
+                String(
+                    format: "That journey needs %.0f km/h, outside the %.0f–%.0f range. Speed set to %.0f km/h.",
+                    required, Self.minimumSpeed, Self.maximumSpeed, speed
+                )
+            )
+        }
+
+        log("target duration \(Int(minutes)) min over \(String(format: "%.2f", routeDistance / 1000)) km — speed set to \(Int(speed)) km/h")
+    }
+
+    static let minimumSpeed: Double = 5
+    static let maximumSpeed: Double = 200
 
     func simulateRoute() {
         guard let route = mapScene.route else {
@@ -206,12 +418,11 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
 
         log("Route segment distances: \(tracks.map { CLLocation.distance(from: $0.startPoint.coordinate, to: $0.endPoint.coordinate) })")
 
+        isPaused = false
         invalidateState()
+        isPlayingRoute = startRoutePlayback()
 
-        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { [weak self] _ in
-            self?.performMovement()
-        }
-        self.timer = timer
+        startMovementTimer()
     }
 
     func simulateFromAToB() {
@@ -230,12 +441,14 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
             )
         ]
 
-        invalidateState()
+        // A straight A-to-B run has no MKRoute, so measure the leg directly.
+        routeDistance = CLLocation.distance(from: endpoints[0].coordinate, to: endpoints[1].coordinate)
 
-        let timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { [weak self] _ in
-            self?.performMovement()
-        }
-        self.timer = timer
+        isPaused = false
+        invalidateState()
+        isPlayingRoute = startRoutePlayback()
+
+        startMovementTimer()
     }
 
     func updateMapRegion(force: Bool = false) {
@@ -305,11 +518,91 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
 
     func stopSimulation() {
         isSimulating = false
+        isPlayingRoute = false
+        isPaused = false
         runner.stop()
+    }
+
+    /// Suspend or resume the running simulation without losing progress.
+    func togglePauseSimulation() {
+        guard isSimulating else { return }
+
+        if isPaused {
+            if isPlayingRoute {
+                if runner.isPlaybackRunning {
+                    runner.resumeRoutePlayback()
+                } else {
+                    // Playback died with the connection; replay what is left of the route.
+                    restartPlaybackFromCurrentPosition()
+                }
+            }
+            isPaused = false
+            startMovementTimer()
+            log("simulation resumed")
+        } else {
+            if isPlayingRoute { runner.pauseRoutePlayback() }
+            isPaused = true
+            timer?.invalidate()
+            timer = nil
+            log("simulation paused")
+        }
+    }
+
+    /// Apply a speed change to a route already in flight.
+    ///
+    /// The GPX encodes speed as the gap between timestamps, so the only way to change it is
+    /// to rewrite the remainder of the route and restart playback from where the device
+    /// actually is. Debounced, because dragging the slider emits continuously.
+    private func scheduleSpeedChange() {
+        speedChangeWork?.cancel()
+        guard isSimulating, isPlayingRoute, !isPaused else { return }
+
+        let work = DispatchWorkItem { [weak self] in
+            self?.restartPlaybackFromCurrentPosition()
+        }
+        speedChangeWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    }
+
+    private func restartPlaybackFromCurrentPosition() {
+        guard isSimulating, isPlayingRoute else { return }
+        guard !connectedDevices.isEmpty else {
+            activity = .failed("No device connected")
+            return
+        }
+
+        let remaining = Array(playbackCoordinates.suffix(from: min(playbackIndex, playbackCoordinates.count)))
+        guard remaining.count > 1 else { return }
+
+        runner.stopRoutePlayback()
+
+        do {
+            let url = try GPXRoute.write(coordinates: remaining, speed: speed / 3.6)
+            let connection = iosConnection
+            playbackCoordinates = remaining
+            playbackIndex = 0
+
+            Task {
+                try await runner.playRoute(gpxURL: url, connection: connection, showAlert: showAlert)
+            }
+
+            log("speed changed to \(Int(speed)) km/h — replaying \(remaining.count) remaining points")
+        } catch {
+            showAlert(error.localizedDescription)
+        }
+    }
+
+    private func startMovementTimer() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: timeScale, repeats: true) { [weak self] _ in
+            self?.performMovement()
+        }
     }
 
     func reset() {
         mapScene.resetMapVisuals()
+        clearRouteState()
+
         if platform == .iOS {
             runner.resetIos(showAlert: showAlert)
         } else {
@@ -498,9 +791,50 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
         currentTrackIndex = 0
     }
 
+    /// How the iOS 17+ device should be reached.
+    private var iosConnection: IOSConnection {
+        useUserspace ? .userspace(udid: selectedDevice) : .rsd(address: rsdAddress, port: rsdPort)
+    }
+
+    /// Coordinates along the computed route, in order.
+    private func routeCoordinates() -> [CLLocationCoordinate2D] {
+        guard let last = tracks.last else { return [] }
+        return tracks.map { $0.startPoint.coordinate } + [last.endPoint.coordinate]
+    }
+
+    /// Hand the whole route to the device as one `simulate-location play` process.
+    ///
+    /// - Returns: `true` when playback started, meaning `performMovement` should only animate
+    ///   the map rather than pushing a location per waypoint.
+    private func startRoutePlayback() -> Bool {
+        guard platform == .iOS, deviceMode == .device else { return false }
+
+        let coordinates = routeCoordinates()
+        guard coordinates.count > 1 else { return false }
+
+        playbackCoordinates = coordinates
+        playbackIndex = 0
+
+        do {
+            let url = try GPXRoute.write(coordinates: coordinates, speed: speed / 3.6)
+            let connection = iosConnection
+
+            Task {
+                try await runner.playRoute(gpxURL: url, connection: connection, showAlert: showAlert)
+            }
+
+            log("route playback started (\(coordinates.count) points)")
+            return true
+        } catch {
+            showAlert(error.localizedDescription)
+            return false
+        }
+    }
+
     private func performMovement() {
         guard isSimulating, tracks.count > 0, currentTrackIndex < tracks.count else {
             isSimulating = false
+            isPaused = false
             timer?.invalidate()
             timer = nil
             currentTrackIndex = 0
@@ -519,14 +853,14 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
         switch trackMove {
         case .moveTo(to: let to, from: let from, withSpeed: let moveSpeed):
             lastTrackLocation = to
-            run(location: to)
+            if !isPlayingRoute { run(location: to) }
             mapScene.placeSimulationAnnotation(at: to)
             log("move to — distance=\(CLLocation.distance(from: from, to: to)), speed=\(moveSpeed)")
 
         case .finishTo(to: let to, from: let from, withSpeed: let moveSpeed):
             lastTrackLocation = nil
             currentTrackIndex += 1
-            run(location: to)
+            if !isPlayingRoute { run(location: to) }
             mapScene.placeSimulationAnnotation(at: to)
             log("finish to — distance=\(CLLocation.distance(from: from, to: to)), speed=\(moveSpeed)")
         }
@@ -594,8 +928,7 @@ class LocationController: NSObject, ObservableObject, CLLocationManagerDelegate 
                 Task {
                     try await runner.runOnNewIos(
                         location: location,
-                        rsdAddress: rsdAddress,
-                        rsdPort: rsdPort,
+                        connection: iosConnection,
                         showAlert: showAlert
                     )
                 }

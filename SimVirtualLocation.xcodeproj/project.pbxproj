@@ -11,6 +11,8 @@
 		AA000002280DE000001D3559 /* IOSProcessLaunching.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000012280DE000001D3559 /* IOSProcessLaunching.swift */; };
 		AA000003280DE000001D3559 /* MapSceneCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000013280DE000001D3559 /* MapSceneCoordinator.swift */; };
 		AA000004280DE000001D3559 /* AppPlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000014280DE000001D3559 /* AppPlatform.swift */; };
+		AA0000F5280DE000001D3559 /* DeviceActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000F6280DE000001D3559 /* DeviceActivity.swift */; };
+		AA0000F3280DE000001D3559 /* IOSConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000F4280DE000001D3559 /* IOSConnection.swift */; };
 		AA000005280DE000001D3559 /* AppStorageKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000015280DE000001D3559 /* AppStorageKey.swift */; };
 		AA000006280DE000001D3559 /* LocationModes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000016280DE000001D3559 /* LocationModes.swift */; };
 		AA000007280DE000001D3559 /* IOSUSBDeviceDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000017280DE000001D3559 /* IOSUSBDeviceDiscovery.swift */; };
@@ -18,7 +20,9 @@
 		AA000009280DE000001D3559 /* SavedLocationsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000019280DE000001D3559 /* SavedLocationsStore.swift */; };
 		AA00000A280DE000001D3559 /* SimulatorDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001A280DE000001D3559 /* SimulatorDiscovery.swift */; };
 		AA00000B280DE000001D3559 /* CoordinateParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001B280DE000001D3559 /* CoordinateParsing.swift */; };
+		AA0000F1280DE000001D3559 /* GPXRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000F2280DE000001D3559 /* GPXRoute.swift */; };
 		AA00000C280DE000001D3559 /* SimVirtualLocationAlertModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001C280DE000001D3559 /* SimVirtualLocationAlertModifier.swift */; };
+		AA0000F7280DE000001D3559 /* DeviceActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000F8280DE000001D3559 /* DeviceActivityView.swift */; };
 		ED44823627B2590400C416C9 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = ED44823527B2590400C416C9 /* Info.plist */; };
 		ED5EB07E280DDDBD004D3559 /* iOSPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EB07D280DDDBD004D3559 /* iOSPanel.swift */; };
 		ED5EB080280DE195004D3559 /* AndroidPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EB07F280DE195004D3559 /* AndroidPanel.swift */; };
@@ -47,6 +51,8 @@
 		AA000012280DE000001D3559 /* IOSProcessLaunching.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSProcessLaunching.swift; sourceTree = "<group>"; };
 		AA000013280DE000001D3559 /* MapSceneCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSceneCoordinator.swift; sourceTree = "<group>"; };
 		AA000014280DE000001D3559 /* AppPlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPlatform.swift; sourceTree = "<group>"; };
+		AA0000F6280DE000001D3559 /* DeviceActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceActivity.swift; sourceTree = "<group>"; };
+		AA0000F4280DE000001D3559 /* IOSConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSConnection.swift; sourceTree = "<group>"; };
 		AA000015280DE000001D3559 /* AppStorageKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStorageKey.swift; sourceTree = "<group>"; };
 		AA000016280DE000001D3559 /* LocationModes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationModes.swift; sourceTree = "<group>"; };
 		AA000017280DE000001D3559 /* IOSUSBDeviceDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSUSBDeviceDiscovery.swift; sourceTree = "<group>"; };
@@ -54,7 +60,9 @@
 		AA000019280DE000001D3559 /* SavedLocationsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedLocationsStore.swift; sourceTree = "<group>"; };
 		AA00001A280DE000001D3559 /* SimulatorDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatorDiscovery.swift; sourceTree = "<group>"; };
 		AA00001B280DE000001D3559 /* CoordinateParsing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordinateParsing.swift; sourceTree = "<group>"; };
+		AA0000F2280DE000001D3559 /* GPXRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPXRoute.swift; sourceTree = "<group>"; };
 		AA00001C280DE000001D3559 /* SimVirtualLocationAlertModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimVirtualLocationAlertModifier.swift; sourceTree = "<group>"; };
+		AA0000F8280DE000001D3559 /* DeviceActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceActivityView.swift; sourceTree = "<group>"; };
 		ED44823527B2590400C416C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		ED5EB07D280DDDBD004D3559 /* iOSPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSPanel.swift; sourceTree = "<group>"; };
 		ED5EB07F280DE195004D3559 /* AndroidPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidPanel.swift; sourceTree = "<group>"; };
@@ -106,6 +114,7 @@
 			isa = PBXGroup;
 			children = (
 				AA00001B280DE000001D3559 /* CoordinateParsing.swift */,
+				AA0000F2280DE000001D3559 /* GPXRoute.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -121,6 +130,7 @@
 				ED5EB083280DE263004D3559 /* LocationSettingsPanel.swift */,
 				EDFC771E2B0A54860058B13A /* LocationsView.swift */,
 				AA00001C280DE000001D3559 /* SimVirtualLocationAlertModifier.swift */,
+				AA0000F8280DE000001D3559 /* DeviceActivityView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -165,6 +175,8 @@
 				EDFC77202B0A55050058B13A /* Locations.swift */,
 				EDDB312D2BFCE6FE0079D10D /* LogEntry.swift */,
 				AA000014280DE000001D3559 /* AppPlatform.swift */,
+				AA0000F6280DE000001D3559 /* DeviceActivity.swift */,
+				AA0000F4280DE000001D3559 /* IOSConnection.swift */,
 				AA000015280DE000001D3559 /* AppStorageKey.swift */,
 				AA000016280DE000001D3559 /* LocationModes.swift */,
 			);
@@ -297,6 +309,8 @@
 				AA000002280DE000001D3559 /* IOSProcessLaunching.swift in Sources */,
 				AA000003280DE000001D3559 /* MapSceneCoordinator.swift in Sources */,
 				AA000004280DE000001D3559 /* AppPlatform.swift in Sources */,
+				AA0000F5280DE000001D3559 /* DeviceActivity.swift in Sources */,
+				AA0000F3280DE000001D3559 /* IOSConnection.swift in Sources */,
 				AA000005280DE000001D3559 /* AppStorageKey.swift in Sources */,
 				AA000006280DE000001D3559 /* LocationModes.swift in Sources */,
 				AA000007280DE000001D3559 /* IOSUSBDeviceDiscovery.swift in Sources */,
@@ -304,7 +318,9 @@
 				AA000009280DE000001D3559 /* SavedLocationsStore.swift in Sources */,
 				AA00000A280DE000001D3559 /* SimulatorDiscovery.swift in Sources */,
 				AA00000B280DE000001D3559 /* CoordinateParsing.swift in Sources */,
+				AA0000F1280DE000001D3559 /* GPXRoute.swift in Sources */,
 				AA00000C280DE000001D3559 /* SimVirtualLocationAlertModifier.swift in Sources */,
+				AA0000F7280DE000001D3559 /* DeviceActivityView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -70,7 +70,11 @@ struct RSDHelpSheet: View {
 
             Text(
                 """
-                iOS 17+ requires a tunnel to the device (CoreDevice/RemoteXPC). Run a command from the pymobiledevice3 documentation in Terminal—for example, on iOS 17.4+:
+                Only needed when "No root required" is off.
+
+                With that option on, SimVirtualLocation establishes the tunnel in-process using pymobiledevice3's userspace network stack—no Terminal, no sudo, and no address to copy. Just select your device above.
+
+                Turn it off to use a kernel tunnel you started yourself, which is faster for large transfers. Run a command from the pymobiledevice3 documentation in Terminal—for example, on iOS 17.4+:
 
                 sudo python3 -m pymobiledevice3 lockdown start-tunnel
 
@@ -135,14 +139,44 @@ struct iOSDeviceSettings: View {
                     Text("iOS 17+")
                 }
                 if locationController.useRSD {
-                    TextField("RSD Address", text: $locationController.rsdAddress)
-                    TextField("RSD Port", text: $locationController.rsdPort)
+                    Picker("Connection", selection: $locationController.useUserspace) {
+                        Text("Automatic").tag(true)
+                        Text("Manual").tag(false)
+                    }.labelsHidden().pickerStyle(.segmented)
 
-                    Button(action: { showRSDHelp = true }, label: {
-                        Label("Where to get RSD Address and Port", systemImage: "questionmark.circle")
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    })
-                    .buttonStyle(.link)
+                    if locationController.useUserspace {
+                        Text("SimVirtualLocation connects to the device itself. No Terminal needed.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        // No Refresh button here: devices are rescanned automatically, and
+                        // DeviceActivityView reports what is happening while none is found.
+                        Picker("Device:", selection: $locationController.selectedDevice) {
+                            ForEach(locationController.connectedDevices, id: \.id) { device in
+                                Text("\(device.name) (\(device.version))")
+                            }
+                        }
+                        .disabled(locationController.connectedDevices.isEmpty)
+
+                        DeviceActivityView(activity: locationController.activity)
+                    } else {
+                        Text("Use a tunnel you started yourself. Requires Terminal and sudo.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        TextField("RSD Address", text: $locationController.rsdAddress)
+                        TextField("RSD Port", text: $locationController.rsdPort)
+
+                        Button(action: { showRSDHelp = true }, label: {
+                            Label("Where to get RSD Address and Port", systemImage: "questionmark.circle")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        })
+                        .buttonStyle(.link)
+
+                        DeviceActivityView(activity: locationController.activity)
+                    }
                 } else {
                     TextField("Xcode path", text: $locationController.xcodePath)
                     Picker("Device:", selection: $locationController.selectedDevice) {
